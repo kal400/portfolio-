@@ -18,6 +18,15 @@ The public portfolio is available at the root. Open `/#admin` to preview the pri
 3. Copy `.env.example` to `.env` and add the project URL and anon key.
 4. Restart the Vite dev server.
 
+The connected dashboard now loads projects, skills, experience, and messages from Supabase. Public visitors can read published projects and submit contact messages; authenticated users can manage the content. The appearance upload keeps a browser fallback and will use Supabase Storage once a restricted `portfolio-assets` bucket is configured for the signed-in owner.
+
+Required `.env` values:
+
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
 ## Production build
 
 ```bash

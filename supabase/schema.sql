@@ -39,10 +39,28 @@ create table if not exists public.messages (
   created_at timestamptz default now()
 );
 
+create table if not exists public.site_settings (
+  key text primary key,
+  value text,
+  updated_at timestamptz default now()
+);
+
 alter table public.projects enable row level security;
 alter table public.skills enable row level security;
 alter table public.experience enable row level security;
 alter table public.messages enable row level security;
+alter table public.site_settings enable row level security;
+
+drop policy if exists "Published projects are public" on public.projects;
+drop policy if exists "Skills are public" on public.skills;
+drop policy if exists "Experience is public" on public.experience;
+drop policy if exists "Anyone can send a message" on public.messages;
+drop policy if exists "Owner manages projects" on public.projects;
+drop policy if exists "Owner manages skills" on public.skills;
+drop policy if exists "Owner manages experience" on public.experience;
+drop policy if exists "Owner manages messages" on public.messages;
+drop policy if exists "Public profile settings are readable" on public.site_settings;
+drop policy if exists "Owner manages profile settings" on public.site_settings;
 
 create policy "Published projects are public" on public.projects for select using (published = true);
 create policy "Skills are public" on public.skills for select using (true);
@@ -52,3 +70,5 @@ create policy "Owner manages projects" on public.projects for all to authenticat
 create policy "Owner manages skills" on public.skills for all to authenticated using (true) with check (true);
 create policy "Owner manages experience" on public.experience for all to authenticated using (true) with check (true);
 create policy "Owner manages messages" on public.messages for all to authenticated using (true) with check (true);
+create policy "Public profile settings are readable" on public.site_settings for select using (key = 'profile_photo_url');
+create policy "Owner manages profile settings" on public.site_settings for all to authenticated using (true) with check (true);
