@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const url = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL;
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 export const supabase = url && key ? createClient(url, key) : null;
 
 export async function fetchPublicContent() {
@@ -12,7 +12,7 @@ export async function fetchPublicContent() {
     supabase.from('experience').select('*').order('sort_order'),
     supabase.from('site_settings').select('key,value').in('key', ['profile_photo_url'])
   ]);
-  return { projects: projects || [], skills: (skills || []).map((item) => item.name), experience: experience || [], photo: settings?.find((item) => item.key === 'profile_photo_url')?.value || null };
+  return { projects: (projects || []).map((item) => ({ ...item, tags: item.tech_stack || [] })), skills: (skills || []).map((item) => item.name), experience: experience || [], photo: settings?.find((item) => item.key === 'profile_photo_url')?.value || null };
 }
 
 export async function fetchAdminContent() {
@@ -29,7 +29,7 @@ export async function fetchAdminContent() {
 
 export async function createProject(project) {
   if (!supabase) return { data: null, error: null };
-  return supabase.from('projects').insert({ title: project.title, category: project.category, description: project.description, tech_stack: project.tags || [], featured: false, published: true }).select().single();
+  return supabase.from('projects').insert({ title: project.title, category: project.category, description: project.description, tech_stack: project.tags || [], image_url: project.image_url || null, live_url: project.live_url || null, repo_url: project.repo_url || null, featured: Boolean(project.featured), published: project.published !== false }).select().single();
 }
 
 export async function removeRecord(table, id) {

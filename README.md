@@ -27,6 +27,8 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
+Supabase Auth owns the admin email/password; no password table should be created in your public database. In Supabase, open Authentication → Users → Add user and create the admin account. The app also accepts `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` as a compatibility alias, but Vite-prefixed variables are recommended.
+
 ## Production build
 
 ```bash
