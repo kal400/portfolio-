@@ -37,6 +37,11 @@ export async function removeRecord(table, id) {
   return supabase.from(table).delete().eq('id', id);
 }
 
+export async function updateRecord(table, id, record) {
+  if (!supabase || !id) return { data: null, error: null };
+  return supabase.from(table).update(record).eq('id', id).select().single();
+}
+
 export async function createSimpleRecord(table, record) {
   if (!supabase) return { data: null, error: null };
   return supabase.from(table).insert(record).select().single();
