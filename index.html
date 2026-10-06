@@ -3,9 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#171716" />
+    <meta name="theme-color" content="#080b10" />
     <meta name="description" content="Kalab Awoke — frontend, full-stack, and product-minded developer based in Addis Ababa." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Kalab Awoke — Digital Product Developer</title>
+    <script>
+      (function() {
+        if (window.location.hash.toLowerCase().indexOf('admin') !== -1) {
+          window.history.replaceState(null, '', window.location.pathname || '/');
+        }
+        if (window.location.pathname.toLowerCase().indexOf('admin') !== -1) {
+          window.history.replaceState(null, '', '/');
+        }
+      })();
+    </script>
   </head>
-  <body><div id="root"></div><script type="module" src="/src/main.jsx"></script></body>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

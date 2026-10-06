@@ -9,7 +9,13 @@ npm install
 npm run dev
 ```
 
-The public portfolio is available at the root. Open `/#admin` to preview the private dashboard. Without Supabase environment variables, the dashboard runs in demo mode.
+The public portfolio runs at `http://localhost:5175`. 
+To run the private Admin CMS on a separate, dedicated port:
+
+```bash
+npm run dev:admin
+```
+The Admin Console is served in total isolation at `http://localhost:5176`. Without Supabase environment variables, the dashboard runs in demo mode.
 
 ## Supabase setup
 

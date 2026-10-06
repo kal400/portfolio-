@@ -1,57 +1,992 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AnimatePresence, motion } from 'framer-motion';
-import { FiActivity, FiArrowUpRight, FiBriefcase, FiCheckCircle, FiChevronRight, FiClock, FiCode, FiEdit3, FiEye, FiGithub, FiImage, FiLayout, FiLinkedin, FiLogOut, FiMail, FiMenu, FiMessageSquare, FiMoon, FiPlus, FiRefreshCw, FiSettings, FiSun, FiTrash2, FiUploadCloud, FiX } from 'react-icons/fi';
-import { createProject, createSimpleRecord, fetchAdminContent, fetchPublicContent, markMessageRead, removeRecord, supabase, updateRecord, uploadProfilePhoto } from './backend';
+import {
+  FiActivity, FiArrowUpRight, FiBriefcase, FiCheck, FiCheckCircle, FiChevronRight,
+  FiClock, FiCode, FiCopy, FiDownload, FiEdit3, FiExternalLink, FiEye, FiGithub, FiImage, FiLayout, FiLinkedin,
+  FiLogOut, FiMail, FiMenu, FiMessageSquare, FiMoon, FiPlus, FiRefreshCw,
+  FiSearch, FiSettings, FiSun, FiTrash2, FiTrendingUp, FiUploadCloud, FiX
+} from 'react-icons/fi';
+import { fetchPublicContent, supabase } from './backend';
+import {
+  CONTENT_KEY, PHOTO_KEY, defaultPhoto, getStoredPhoto, navItems,
+  process, projects, readStored, skills, skillsData
+} from './data';
 import './styles.css';
 
-const PHOTO_STORAGE_KEY = 'kalab-portfolio-photo';
-const CONTENT_STORAGE_KEY = 'kalab-portfolio-content';
-const defaultPhoto = '/photo.jpg';
-const readStored = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } };
-const getStoredPhoto = () => localStorage.getItem(PHOTO_STORAGE_KEY) || defaultPhoto;
-const navItems = ['Home', 'About', 'Process', 'Skills', 'Portfolio', 'Services', 'Contact'];
-const projects = [
-  { title: 'Nova Finance', category: 'Fintech dashboard', description: 'A focused financial workspace that turns complex numbers into confident decisions.', tags: ['React', 'Product UI', 'Supabase'], tone: 'blue', featured: true },
-  { title: 'Form Studio', category: 'Creative platform', description: 'A flexible digital home for a design practice with a strong visual point of view.', tags: ['React', 'Design system', 'CMS'], tone: 'gold', featured: true },
-  { title: 'Field Notes', category: 'Editorial platform', description: 'A publishing experience designed around calm reading and simple content operations.', tags: ['Next.js', 'Content', 'API'], tone: 'violet' },
-  { title: 'Ops Board', category: 'Internal tool concept', description: 'A clearer way for teams to see work, ownership, and the next useful action.', tags: ['TypeScript', 'Workflow', 'UX'], tone: 'green' },
-  { title: 'Market Home', category: 'Commerce concept', description: 'A fast storefront foundation that gives products room to be understood.', tags: ['Frontend', 'Commerce', 'Responsive'], tone: 'rose' },
-];
-const skills = ['React', 'JavaScript', 'TypeScript', 'Node.js', 'Supabase', 'PostgreSQL', 'REST APIs', 'Responsive UI', 'Design systems', 'Accessibility', 'Git', 'Vercel'];
-const process = [['01', 'Understand', 'Start with the people, constraints, and outcome behind the brief.'], ['02', 'Shape', 'Turn the messy middle into a clear product direction and visual system.'], ['03', 'Ship', 'Build, test, and refine until the work feels simple to use and ready for real life.']];
-const reveal = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: .6, ease: [.22, 1, .36, 1] } } };
-const stagger = { hidden: {}, show: { transition: { staggerChildren: .09 } } };
+/* ── Motion variants ────────────────────────────────────────── */
+const reveal  = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } } };
+const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
+
+/* ── Shared components ──────────────────────────────────────── */
 function Arrow() { return <FiArrowUpRight className="arrow-icon" aria-hidden="true" />; }
 
-function PublicSite() {
-  const [theme, setTheme] = useState(() => localStorage.getItem('kalab-theme') || 'dark'); const [menuOpen, setMenuOpen] = useState(false); const [contact, setContact] = useState({ name: '', email: '', message: '' }); const [contactState, setContactState] = useState('idle'); const [photo, setPhoto] = useState(getStoredPhoto); const [content, setContent] = useState(() => readStored(CONTENT_STORAGE_KEY, {})); const visibleProjects = content.projects?.length ? content.projects : projects; const visibleSkills = content.skills?.length ? content.skills : skills;
-  useEffect(() => { if (!supabase) return; fetchPublicContent().then((remote) => { if (!remote) return; setContent({ projects: remote.projects, skills: remote.skills }); if (remote.photo) setPhoto(remote.photo); }).catch(() => {}); }, []);
-  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('kalab-theme', theme); }, [theme]);
-  const submitContact = async (event) => { event.preventDefault(); setContactState('sending'); if (supabase) { const { error } = await supabase.from('messages').insert(contact); if (error) { setContactState('error'); return; } } setContactState('sent'); setContact({ name: '', email: '', message: '' }); };
-  return <div className="reference-site"><header className="reference-nav"><a className="reference-brand" href="#home"><span>KA</span><strong>Kalab</strong></a><nav className={menuOpen ? 'reference-links open' : 'reference-links'}>{navItems.map((item) => <a key={item} href={`#${item.toLowerCase()}`} onClick={() => setMenuOpen(false)}>{item}</a>)}</nav><div className="nav-actions"><button className="theme-toggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Toggle color theme">{theme === 'dark' ? <FiSun /> : <FiMoon />}</button><a className="nav-contact" href="#contact">Contact <Arrow /></a><button className="mobile-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">{menuOpen ? <FiX /> : <FiMenu />}</button></div></header><main>
-    <motion.section id="home" className="reference-hero" initial="hidden" animate="show" variants={stagger}><div className="hero-glow glow-one" /><div className="hero-glow glow-two" /><div className="grid-overlay" /><motion.div className="hero-content" variants={reveal}><div className="status-pill"><span /> Available for opportunities</div><h1>Building digital products with <span>clarity.</span></h1><p className="hero-role">Frontend-first / Full-stack developer</p><p className="hero-copy">I’m Kalab Awoke, a developer based in Addis Ababa building production-minded web experiences across product, commerce, and internal tools.</p><div className="hero-buttons"><a className="primary-button" href="#portfolio">View my work <Arrow /></a><a className="secondary-button" href="#contact">Let’s connect <Arrow /></a></div><div className="social-row"><a href="https://github.com/kal400" target="_blank" rel="noreferrer"><FiGithub /> GitHub</a><a href="https://www.linkedin.com" target="_blank" rel="noreferrer"><FiLinkedin /> LinkedIn</a><a href="mailto:kaleabawoe@gmail.com"><FiMail /> Email</a></div></motion.div><motion.div className="hero-photo" variants={reveal}><img src={photo} alt="Kalab Awoke illustrated portrait" /><span>PROFILE / 01</span></motion.div><div className="hero-orbit orbit-a" /><div className="hero-orbit orbit-b" /><div className="hero-mark">KA<span>01</span></div></motion.section>
-    <motion.section className="stats-strip" initial="hidden" whileInView="show" viewport={{ once: true, amount: .4 }} variants={stagger}>{[['3+', 'Ways I build'], ['12', 'Core tools'], ['∞', 'Curiosity']].map(([value, label]) => <motion.div variants={reveal} key={label}><strong>{value}</strong><span>{label}</span></motion.div>)}<p>From the first sketch<br />to the last detail.</p></motion.section>
-    <Section id="about" number="01" title="About me"><div className="about-grid"><motion.div variants={reveal}><h2>Full-stack thinking, <em>frontend-first</em> craft.</h2></motion.div><motion.div className="about-copy" variants={reveal}><p>I care about making digital products feel obvious in the best way. That means clear decisions, thoughtful interfaces, and code that stays understandable after launch.</p><p>My work sits between product thinking, visual systems, and implementation. I’m comfortable moving from an open question to a responsive interface, a working data flow, and the details that make a product feel trustworthy.</p><a className="inline-link" href="#contact">More about my approach <Arrow /></a></motion.div></div></Section>
-    <Section id="process" number="02" title="How I work" className="process-section"><h2 className="section-title">A useful process for <em>real work.</em></h2><motion.div className="process-grid" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: .3 }}>{process.map(([number, title, copy]) => <motion.article variants={reveal} key={number}><span className="process-number">{number}</span><h3>{title}</h3><p>{copy}</p><span className="process-line" /></motion.article>)}</motion.div></Section>
-    <Section id="skills" number="03" title="Skills & tools"><div className="skills-layout"><h2>Tools for making<br /><em>useful things.</em></h2><motion.div className="skill-pills" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: .3 }}>{visibleSkills.map((skill) => <motion.span variants={reveal} key={skill}>{skill}</motion.span>)}</motion.div></div></Section>
-    <Section id="portfolio" number="04" title="Selected work" className="portfolio-section"><div className="portfolio-heading"><h2>Projects I’ve <em>shaped.</em></h2><p>Concepts and shipped work across interfaces, systems, and the messy middle where products become useful.</p></div><motion.div className="portfolio-grid" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: .2 }}>{visibleProjects.map((project, index) => <motion.article variants={reveal} whileHover={{ y: -6 }} className="portfolio-card" key={project.title}><div className={`project-image tone-${project.tone || 'blue'}`}><span className="project-index">0{index + 1}</span><span className="project-symbol">{project.title.slice(0, 1)}</span><span className="project-category">{project.category}</span></div><div className="project-details"><div><h3>{project.title}</h3><p>{project.description}</p><div className="tag-row">{project.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></div><Arrow /></div></motion.article>)}</motion.div></Section>
-    <Section id="services" number="05" title="What I build"><div className="service-list">{[['01', 'Product interfaces', 'Responsive frontend systems that make complicated workflows feel calm and clear.'], ['02', 'Full-stack foundations', 'Auth, data flows, APIs, dashboards, and the dependable parts behind the interface.'], ['03', 'Design-minded development', 'A strong visual point of view carried through spacing, states, motion, and accessibility.']].map(([num, title, copy]) => <motion.article whileHover={{ x: 8 }} key={num}><span>{num}</span><div><h3>{title}</h3><p>{copy}</p></div><Arrow /></motion.article>)}</div></Section>
-    <section id="contact" className="contact-section"><div className="contact-inner"><div className="section-kicker"><span>06</span><b>Contact</b></div><h2>Have a good idea?<br /><em>Let’s make it real.</em></h2><div className="contact-grid"><div><p>Open to thoughtful collaborations, product teams, and opportunities where good work has room to matter.</p><a className="contact-email" href="mailto:kaleabawoe@gmail.com">kaleabawoe@gmail.com <Arrow /></a></div><form onSubmit={submitContact}><label>Name<input required value={contact.name} onChange={(e) => setContact({ ...contact, name: e.target.value })} /></label><label>Email<input required type="email" value={contact.email} onChange={(e) => setContact({ ...contact, email: e.target.value })} /></label><label>Message<textarea required rows="4" value={contact.message} onChange={(e) => setContact({ ...contact, message: e.target.value })} /></label><button className="primary-button" disabled={contactState === 'sending'}>{contactState === 'sending' ? 'Sending…' : contactState === 'sent' ? 'Message sent ✓' : 'Send message'} <Arrow /></button>{contactState === 'error' && <small>Could not send. Please email me directly.</small>}</form></div></div></section></main><footer className="reference-footer"><span>© 2026 Kalab Awoke</span><span>Built with care in Addis Ababa</span><a href="#home">Back to top ↑</a></footer></div>;
+function Section({ id, number, title, className = '', children }) {
+  return (
+    <motion.section
+      id={id}
+      className={`content-section ${className}`}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount: 0.1 }}
+      variants={stagger}
+    >
+      <div className="section-kicker">
+        <span />
+        {number} — {title}
+      </div>
+      {children}
+    </motion.section>
+  );
 }
 
-function Section({ id, number, title, className = '', children }) { return <motion.section id={id} className={`content-section ${className}`} initial="hidden" whileInView="show" viewport={{ once: true, amount: .12 }} variants={stagger}><div className="section-kicker"><span>{number}</span><b>{title}</b></div>{children}</motion.section>; }
+/* ── Live Addis Ababa Clock ─────────────────────────────────── */
+function LiveClock() {
+  const [time, setTime] = useState('');
+  useEffect(() => {
+    const update = () => {
+      try {
+        const str = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Africa/Addis_Ababa',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        }).format(new Date());
+        setTime(str);
+      } catch {
+        setTime('10:15 AM');
+      }
+    };
+    update();
+    const id = setInterval(update, 10000);
+    return () => clearInterval(id);
+  }, []);
 
-const adminNav = [{ label: 'Overview', icon: FiActivity }, { label: 'Projects', icon: FiBriefcase }, { label: 'Skills', icon: FiCode }, { label: 'Experience', icon: FiLayout }, { label: 'Messages', icon: FiMessageSquare }, { label: 'Appearance', icon: FiImage }];
-function AdminLogin({ onLogin }) { const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState(''); const login = async (event) => { event.preventDefault(); setError(''); if (!supabase) { onLogin({ email: email || 'demo@local.dev' }); return; } const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password }); if (authError) setError(authError.message); else onLogin(data.user); }; return <motion.div className="admin-shell auth-shell" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><motion.div className="auth-card" initial={{ y: 25, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: .1 }}><a className="reference-brand" href="#home"><span>KA</span><strong>Kalab</strong></a><p className="eyebrow">Private workspace</p><h1>Welcome back.</h1><p>Manage the work, skills, experience, and messages shown on your portfolio.</p><form onSubmit={login}><label>Email<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>Password<input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label><button className="primary-button">Sign in <Arrow /></button>{error && <small>{error}</small>}{!supabase && <small>Demo mode: connect Supabase variables for real authentication.</small>}</form></motion.div></motion.div>; }
+  return (
+    <div className="nav-clock" title="Local time in Addis Ababa, Ethiopia (UTC+3)">
+      <span className="nav-clock-dot" />
+      <span>Addis Ababa · {time || 'EAT'}</span>
+    </div>
+  );
+}
 
-function AdminDashboard({ user, onLogout }) { const savedContent = readStored(CONTENT_STORAGE_KEY, {}); const [active, setActive] = useState('Overview'); const [sidebarOpen, setSidebarOpen] = useState(false); const [showNew, setShowNew] = useState(false); const [projectList, setProjectList] = useState(savedContent.projects || projects); const [skillList, setSkillList] = useState(savedContent.skills || skills); const [experienceList, setExperienceList] = useState(savedContent.experience || ['Independent developer', 'Product-focused builder']); const [messageList, setMessageList] = useState([]); const unread = messageList.filter((message) => !message.is_read).length || 2; const persist = (next) => localStorage.setItem(CONTENT_STORAGE_KEY, JSON.stringify(next)); const updateProjects = (next) => { setProjectList(next); persist({ projects: next, skills: skillList, experience: experienceList }); }; const updateSkills = (next) => { setSkillList(next); persist({ projects: projectList, skills: next, experience: experienceList }); }; const updateExperience = (next) => { setExperienceList(next); persist({ projects: projectList, skills: skillList, experience: next }); }; useEffect(() => { if (!supabase) return; fetchAdminContent().then((remote) => { if (!remote) return; if (remote.projects.length) setProjectList(remote.projects.map((item) => ({ ...item, tags: item.tech_stack || [], tone: item.tone || 'blue' }))); if (remote.skills.length) setSkillList(remote.skills); if (remote.experience.length) setExperienceList(remote.experience); setMessageList(remote.messages); }).catch(() => {}); }, []); const stats = [{ label: 'Published projects', value: projectList.length, icon: FiBriefcase, trend: 'Live on portfolio' }, { label: 'Skills listed', value: skillList.length, icon: FiCode, trend: 'Ready to scan' }, { label: 'Unread messages', value: unread, icon: FiMessageSquare, trend: 'Needs attention' }]; return <motion.div className="admin-shell" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><aside className={sidebarOpen ? 'admin-sidebar is-open' : 'admin-sidebar'}><div className="admin-brand-row"><a className="reference-brand" href="#home"><span>KA</span><strong>Admin</strong></a><button className="mobile-toggle" onClick={() => setSidebarOpen(false)}><FiX /></button></div><nav>{adminNav.map(({ label, icon: Icon }) => <button className={active === label ? 'active' : ''} onClick={() => { setActive(label); setSidebarOpen(false); }} key={label}><Icon />{label}{label === 'Messages' && <b>{unread}</b>}</button>)}</nav><div className="admin-sidebar-bottom"><span><FiSettings /> Settings</span><button className="logout" onClick={onLogout}><FiLogOut /> Log out</button></div></aside><main className="admin-main"><div className="admin-topbar"><button className="admin-menu-button" onClick={() => setSidebarOpen(true)}><FiMenu /></button><div><p className="eyebrow">Portfolio workspace</p><h1>{active}</h1></div><div className="admin-user"><span className="admin-avatar">{(user.email || 'K').slice(0, 1).toUpperCase()}</span><span>{user.email}</span></div></div><AnimatePresence mode="wait"><motion.div key={active} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .25 }}>{active === 'Overview' ? <AdminOverview stats={stats} projects={projectList} onNew={() => setShowNew(true)} setActive={setActive} /> : active === 'Appearance' ? <AdminAppearance /> : active === 'Messages' ? <AdminMessages messages={messageList} onRead={(id) => { markMessageRead(id); setMessageList(messageList.map((message) => message.id === id ? { ...message, is_read: true } : message)); }} /> : <AdminCollection title={active} rows={active === 'Projects' ? projectList : active === 'Skills' ? skillList : experienceList} onNew={active === 'Projects' ? () => setShowNew(true) : active === 'Skills' ? () => { const value = window.prompt('Add a skill'); if (value) { updateSkills([...skillList, value]); createSimpleRecord('skills', { name: value, category: 'tools', sort_order: skillList.length }); } } : () => { const value = window.prompt('Add an experience item'); if (value) { updateExperience([...experienceList, value]); createSimpleRecord('experience', { role: value, company: 'Independent', date_range: 'Current', description: value, sort_order: experienceList.length }); } }} onDelete={(index) => { const row = active === 'Projects' ? projectList[index] : active === 'Skills' ? skillList[index] : experienceList[index]; if (row?.id) removeRecord(active === 'Projects' ? 'projects' : active === 'Skills' ? 'skills' : 'experience', row.id); active === 'Projects' ? updateProjects(projectList.filter((_, i) => i !== index)) : active === 'Skills' ? updateSkills(skillList.filter((_, i) => i !== index)) : updateExperience(experienceList.filter((_, i) => i !== index)); }} />}</motion.div></AnimatePresence>{showNew && <NewProjectModal onClose={() => setShowNew(false)} onSave={async (project) => { const result = await createProject(project); updateProjects([{ ...project, ...(result.data || {}) }, ...projectList]); setShowNew(false); }} />}</main></motion.div>; }
-function AdminOverview({ stats, projects: currentProjects, onNew, setActive }) { return <><div className="admin-welcome"><div><span className="eyebrow">Good morning, Kalab</span><h2>Your portfolio at a glance.</h2><p>Keep your work fresh and your story moving forward.</p></div><button className="primary-button" onClick={onNew}><FiPlus /> New project</button></div><div className="admin-stats">{stats.map(({ label, value, icon: Icon, trend }) => <motion.div className="admin-stat" whileHover={{ y: -4 }} key={label}><div className="stat-icon"><Icon /></div><span>{label}</span><strong>{value}</strong><small><FiCheckCircle /> {trend}</small></motion.div>)}</div><div className="admin-grid-panels"><section className="admin-panel"><div className="panel-header"><div><p className="eyebrow">Recently updated</p><h2>Work library</h2></div><button onClick={() => setActive('Projects')}>View all <FiChevronRight /></button></div>{currentProjects.slice(0, 3).map((project, i) => <div className="admin-list-row" key={project.title}><span className={`mini-project tone-${project.tone || 'blue'}`}>{String(i + 1).padStart(2, '0')}</span><div><strong>{project.title}</strong><small>{project.category}</small></div><span className="status-badge"><FiEye /> Published</span><FiEdit3 className="row-action" /></div>)}</section><section className="admin-panel activity-panel"><div className="panel-header"><div><p className="eyebrow">Inbox</p><h2>Messages</h2></div><button onClick={() => setActive('Messages')}>Open inbox <FiChevronRight /></button></div><div className="message-preview"><span className="message-dot" /><div><strong>Your next project starts here</strong><small>New message · Today</small></div><FiChevronRight /></div><div className="message-preview muted"><FiClock /><div><strong>Collaboration opportunity</strong><small>Read · Yesterday</small></div></div></section></div></>; }
-function AdminCollection({ title, rows, onNew, onEdit, onDelete }) { const [editing, setEditing] = useState(null); const editRow = async (row, index) => { if (onEdit) return onEdit(index); if (title === 'Projects') return setEditing({ ...row, tags: row.tags || row.tech_stack || [] }); const current = typeof row === 'string' ? row : row.title || row.name || row.role; const next = window.prompt(`Edit ${title === 'Skills' ? 'skill' : 'experience'}`, current); if (!next || next === current) return; const table = title === 'Skills' ? 'skills' : 'experience'; const field = title === 'Skills' ? { name: next } : { role: next }; if (row?.id) { const result = await updateRecord(table, row.id, field); if (result.error) return window.alert(result.error.message); } else { const stored = readStored(CONTENT_STORAGE_KEY, {}); const key = title === 'Skills' ? 'skills' : 'experience'; const list = stored[key] || rows; const edited = typeof row === 'string' ? next : { ...row, ...field, title: next }; localStorage.setItem(CONTENT_STORAGE_KEY, JSON.stringify({ ...stored, [key]: list.map((item, itemIndex) => itemIndex === index ? edited : item) })); } window.location.reload(); }; const saveProject = async (project) => { const payload = { title: project.title, category: project.category, description: project.description, image_url: project.image_url || null, live_url: project.live_url || null, repo_url: project.repo_url || null, tech_stack: project.tags || [] }; if (editing.id) { const result = await updateRecord('projects', editing.id, payload); if (result.error) return window.alert(result.error.message); } else { const stored = readStored(CONTENT_STORAGE_KEY, {}); const list = stored.projects || rows; localStorage.setItem(CONTENT_STORAGE_KEY, JSON.stringify({ ...stored, projects: list.map((item) => item.title === editing.title ? { ...item, ...project } : item) })); } setEditing(null); window.location.reload(); }; return <><section className="admin-panel collection-panel"><div className="panel-header"><div><p className="eyebrow">Manage content</p><h2>{title}</h2></div>{onNew && <button className="primary-button" onClick={onNew}><FiPlus /> Add {title === 'Projects' ? 'project' : 'item'}</button>}</div><div className="collection-toolbar"><span>{rows.length} records</span><button><FiActivity /> Recently updated</button></div>{rows.map((row, index) => { const label = typeof row === 'string' ? row : row.title || row.name || row.role; return <motion.div className="admin-list-row" whileHover={{ x: 4 }} key={`${label}-${index}`}><span className="row-number">{String(index + 1).padStart(2, '0')}</span><div><strong>{label}</strong><small>{typeof row === 'string' ? title.slice(0, -1) : row.category || row.company || 'Portfolio content'}</small></div><span className="status-badge"><FiCheckCircle /> Published</span><button className="icon-action" aria-label={`Edit ${label}`} onClick={() => editRow(row, index)}><FiEdit3 /></button><button className="icon-action danger" aria-label={`Delete ${label}`} onClick={() => onDelete?.(index)}><FiTrash2 /></button></motion.div>; })}</section>{editing && <ProjectEditorModal project={editing} onClose={() => setEditing(null)} onSave={saveProject} />}</>; }
+/* ══════════════════════════════════════════════════════════════
+   EXECUTIVE PORTRAIT SHOWCASE — High-craft 3D tactile card
+══════════════════════════════════════════════════════════════ */
+function ExecutivePortrait({ src }) {
+  const cardRef = useRef(null);
+  const glareRef = useRef(null);
+  const [coords, setCoords] = useState({ x: 50, y: 50 });
+  const [isHovered, setIsHovered] = useState(false);
 
-function ProjectEditorModal({ project, onClose, onSave }) { const [form, setForm] = useState({ title: project.title || '', category: project.category || '', description: project.description || '', image_url: project.image_url || '', live_url: project.live_url || '', repo_url: project.repo_url || '', tags: (project.tags || project.tech_stack || []).join(', ') }); const update = (key, value) => setForm({ ...form, [key]: value }); return <div className="modal-backdrop" onClick={onClose}><motion.div className="project-modal project-modal-wide" initial={{ opacity: 0, y: 20, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} onClick={(event) => event.stopPropagation()}><div className="panel-header"><div><p className="eyebrow">Projects</p><h2>Edit project</h2></div><button className="icon-action" onClick={onClose}><FiX /></button></div><form onSubmit={(event) => { event.preventDefault(); onSave({ ...form, tags: form.tags.split(',').map((tag) => tag.trim()).filter(Boolean) }); }}><div className="form-two-col"><label>Project title<input required value={form.title} onChange={(e) => update('title', e.target.value)} /></label><label>Category<input required value={form.category} onChange={(e) => update('category', e.target.value)} /></label></div><label>Description<textarea required rows="4" value={form.description} onChange={(e) => update('description', e.target.value)} /></label><label>Project image URL<input value={form.image_url} onChange={(e) => update('image_url', e.target.value)} placeholder="https://.../project-cover.jpg" /></label><div className="form-two-col"><label>Live project link<input type="url" value={form.live_url} onChange={(e) => update('live_url', e.target.value)} /></label><label>Repository link<input type="url" value={form.repo_url} onChange={(e) => update('repo_url', e.target.value)} /></label></div><label>Technologies <small>comma separated</small><input value={form.tags} onChange={(e) => update('tags', e.target.value)} /></label><div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button className="primary-button"><FiCheckCircle /> Save changes</button></div></form></motion.div></div>; }
-function AdminAppearance() { const [photo, setPhoto] = useState(getStoredPhoto); const [saved, setSaved] = useState(false); const savePhoto = (event) => { const file = event.target.files?.[0]; if (!file || !file.type.startsWith('image/')) return; const reader = new FileReader(); reader.onload = async () => { localStorage.setItem(PHOTO_STORAGE_KEY, reader.result); setPhoto(reader.result); const result = await uploadProfilePhoto(file); setSaved(!result.error); }; reader.readAsDataURL(file); }; const resetPhoto = () => { localStorage.removeItem(PHOTO_STORAGE_KEY); setPhoto(defaultPhoto); setSaved(true); }; return <section className="admin-panel appearance-panel"><div className="panel-header"><div><p className="eyebrow">Public profile</p><h2>Appearance</h2></div><span className="status-badge"><FiCheckCircle /> {supabase ? 'Cloud connected' : 'Demo mode'}</span></div><div className="appearance-grid"><div className="appearance-preview"><div className="appearance-photo-frame"><img src={photo} alt="Current portfolio portrait preview" /></div><div><strong>Hero portrait</strong><p>This image appears in the public homepage hero. Use a sharp portrait with a simple background for the strongest result.</p></div></div><div className="appearance-controls"><label className="upload-zone"><FiUploadCloud /><strong>Replace portrait</strong><span>JPG, PNG, or WEBP · up to 5 MB</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={savePhoto} /></label><button className="secondary-button" onClick={resetPhoto}><FiRefreshCw /> Restore default image</button>{saved && <small className="save-note"><FiCheckCircle /> Photo updated and synced.</small>}</div></div></section>; }
-function AdminMessages({ messages, onRead }) { const rows = messages.length ? messages : [{ name: 'Your next project starts here', email: 'hello@example.com', message: 'Connect Supabase to receive real contact submissions.', created_at: new Date().toISOString(), is_read: false }]; return <section className="admin-panel collection-panel"><div className="panel-header"><div><p className="eyebrow">Inbox</p><h2>Messages</h2></div><span className="status-badge"><FiMessageSquare /> {rows.filter((message) => !message.is_read).length} unread</span></div><div className="message-inbox">{rows.map((message, index) => <article className={!message.is_read ? 'inbox-message unread' : 'inbox-message'} key={message.id || message.name + index}><div className="message-avatar">{message.name.slice(0, 1)}</div><div><strong>{message.name}</strong><small>{message.email} · {new Date(message.created_at).toLocaleDateString()}</small><p>{message.message}</p></div><button className="icon-action" onClick={() => onRead(message.id)} aria-label="Mark message as read"><FiMail /></button></article>)}</div></section>; }
-function NewProjectModal({ onClose, onSave }) { const [form, setForm] = useState({ title: '', category: '', description: '', image_url: '', live_url: '', repo_url: '', tags: '' }); const update = (key, value) => setForm({ ...form, [key]: value }); return <div className="modal-backdrop" onClick={onClose}><motion.div className="project-modal project-modal-wide" initial={{ opacity: 0, y: 20, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} onClick={(event) => event.stopPropagation()}><div className="panel-header"><div><p className="eyebrow">Projects</p><h2>Add a project</h2></div><button className="icon-action" onClick={onClose}><FiX /></button></div><form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, title: form.title || 'Untitled project', category: form.category || 'New project', description: form.description || 'Add a project description from the dashboard.', tags: form.tags.split(',').map((tag) => tag.trim()).filter(Boolean), tone: 'blue' }); }}><div className="form-two-col"><label>Project title<input autoFocus required value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="e.g. Client dashboard" /></label><label>Category<input required value={form.category} onChange={(e) => update('category', e.target.value)} placeholder="e.g. Product design" /></label></div><label>Description<textarea required rows="4" value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="What did you build and why does it matter?" /></label><label>Project image URL<input value={form.image_url} onChange={(e) => update('image_url', e.target.value)} placeholder="https://.../project-cover.jpg" /></label><div className="form-two-col"><label>Live project link<input type="url" value={form.live_url} onChange={(e) => update('live_url', e.target.value)} placeholder="https://your-project.com" /></label><label>Repository link<input type="url" value={form.repo_url} onChange={(e) => update('repo_url', e.target.value)} placeholder="https://github.com/..." /></label></div><label>Technologies <small>comma separated</small><input value={form.tags} onChange={(e) => update('tags', e.target.value)} placeholder="React, Supabase, TypeScript" /></label><div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button className="primary-button"><FiPlus /> Create project</button></div></form></motion.div></div>; }
-function App() { const [admin, setAdmin] = useState(window.location.hash.startsWith('#admin')); const [user, setUser] = useState(null); useEffect(() => { const onHash = () => setAdmin(window.location.hash.startsWith('#admin')); window.addEventListener('hashchange', onHash); return () => window.removeEventListener('hashchange', onHash); }, []); if (!admin) return <PublicSite />; return user ? <AdminDashboard user={user} onLogout={() => setUser(null)} /> : <AdminLogin onLogin={setUser} />; }
-createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);
+  const handleMouseMove = (e) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const normX = (x / rect.width) * 2 - 1;
+    const normY = (y / rect.height) * 2 - 1;
+
+    const tiltX = -normY * 7;
+    const tiltY = normX * 7;
+
+    cardRef.current.style.transform = `perspective(1000px) rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg) scale3d(1.02, 1.02, 1.02)`;
+
+    const pctX = Math.round((x / rect.width) * 100);
+    const pctY = Math.round((y / rect.height) * 100);
+    setCoords({ x: pctX, y: pctY });
+
+    if (glareRef.current) {
+      glareRef.current.style.opacity = '1';
+      glareRef.current.style.background = `radial-gradient(circle 320px at ${pctX}% ${pctY}%, rgba(255,255,255,0.16), transparent 70%)`;
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (cardRef.current) {
+      cardRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+    }
+    if (glareRef.current) {
+      glareRef.current.style.opacity = '0';
+    }
+  };
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+
+  return (
+    <div
+      className="exec-portrait-root"
+      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div
+        className="exec-aura"
+        style={{
+          transform: isHovered
+            ? `translate(${(coords.x - 50) * 0.35}px, ${(coords.y - 50) * 0.35}px)`
+            : 'translate(0px, 0px)'
+        }}
+      />
+
+      <div
+        className="exec-card"
+        ref={cardRef}
+        style={{
+          '--spotlight-x': `${coords.x}%`,
+          '--spotlight-y': `${coords.y}%`,
+        }}
+      >
+        <div className="exec-border-glare" />
+
+        <div className="exec-inner-frame">
+          <img
+            src={src}
+            alt="Kalab Awoke — Developer Portrait"
+            className="exec-image"
+          />
+          <div className="exec-image-overlay" />
+          <div className="exec-glare" ref={glareRef} />
+        </div>
+
+        <div className="exec-floating-badge badge-top">
+          <span className="exec-badge-dot" />
+          <div className="exec-badge-text">
+            <strong>Available</strong>
+            <small>Q2 / Q3 Projects</small>
+          </div>
+        </div>
+
+        <div className="exec-floating-badge badge-bottom">
+          <div className="exec-badge-icon">
+            <FiCode />
+          </div>
+          <div className="exec-badge-text">
+            <strong>Full-Stack Craft</strong>
+            <small>Addis Ababa · UTC+3</small>
+          </div>
+        </div>
+
+        <div className="exec-footer-strip">
+          <span>KALAB AWOKE</span>
+          <span>PRODUCT // 2026</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Interactive Browser Mockup for Projects ─────────────────── */
+function ProjectBrowserMockup({ project }) {
+  const { title, tone, url } = project;
+
+  return (
+    <div className={`mockup-window tone-${tone || 'blue'}`}>
+      <div className="mockup-header">
+        <div className="mockup-dots">
+          <span className="dot-red" />
+          <span className="dot-yellow" />
+          <span className="dot-green" />
+        </div>
+        <div className="mockup-url-bar">
+          <span className="url-lock">🔒</span>
+          <span className="url-text">{url || `${title.toLowerCase().replace(/\s+/g, '')}.app`}</span>
+        </div>
+        <div className="mockup-header-action">
+          <FiArrowUpRight />
+        </div>
+      </div>
+
+      <div className="mockup-viewport">
+        {title === 'Nova Finance' && (
+          <div className="ui-nova">
+            <div className="nova-top">
+              <div>
+                <span className="ui-label">Total Portfolio</span>
+                <strong className="ui-num">$128,450.00</strong>
+              </div>
+              <span className="ui-chip positive">+18.4%</span>
+            </div>
+            <div className="nova-chart">
+              <svg viewBox="0 0 240 55" className="chart-svg">
+                <defs>
+                  <linearGradient id="grad-blue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#00d4ff" stopOpacity="0.45" />
+                    <stop offset="100%" stopColor="#00d4ff" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+                <path d="M0,42 Q40,48 70,28 T140,22 T200,8 T240,12 L240,55 L0,55 Z" fill="url(#grad-blue)" />
+                <path d="M0,42 Q40,48 70,28 T140,22 T200,8 T240,12" fill="none" stroke="#00d4ff" strokeWidth="2.2" />
+              </svg>
+            </div>
+            <div className="nova-grid">
+              <div className="nova-card"><span>Yield</span><strong>8.2% APY</strong></div>
+              <div className="nova-card"><span>Volume</span><strong>$42.8k</strong></div>
+            </div>
+          </div>
+        )}
+
+        {title === 'Form Studio' && (
+          <div className="ui-form">
+            <div className="form-header">
+              <span className="form-brand">FORM // 01</span>
+              <span className="form-tag">INDEX 2025</span>
+            </div>
+            <div className="form-canvas">
+              <div className="canvas-block block-lg">
+                <span className="block-title">SPATIAL IDENTITY</span>
+                <span className="block-sub">Architecture & Systems</span>
+              </div>
+              <div className="canvas-row">
+                <div className="canvas-block block-sm" />
+                <div className="canvas-block block-sm" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {title === 'Field Notes' && (
+          <div className="ui-notes">
+            <div className="notes-meta">
+              <span className="notes-tag">ESSAY #42</span>
+              <span>4 MIN READ</span>
+            </div>
+            <h4 className="notes-title">Architecture of Calm Systems</h4>
+            <div className="notes-lines">
+              <div className="notes-line w-full" />
+              <div className="notes-line w-90" />
+              <div className="notes-line w-75" />
+            </div>
+            <div className="notes-stats">
+              <span>TypeScript</span> · <span>Local-First</span>
+            </div>
+          </div>
+        )}
+
+        {title === 'Ops Board' && (
+          <div className="ui-ops">
+            <div className="ops-header">
+              <span className="ops-sprint">Sprint 34</span>
+              <span className="ops-badge">84% velocity</span>
+            </div>
+            <div className="ops-cols">
+              <div className="ops-col">
+                <div className="ops-col-title">In Review (3)</div>
+                <div className="ops-item active">Auth token refresh logic</div>
+                <div className="ops-item">Edge latency bench</div>
+              </div>
+              <div className="ops-col">
+                <div className="ops-col-title">Done (12)</div>
+                <div className="ops-item done">PostgreSQL migration</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {title === 'Market Home' && (
+          <div className="ui-market">
+            <div className="market-preview">
+              <div className="market-img-skeleton" />
+              <div className="market-details">
+                <div className="market-title">Nordic Minimalist Lamp</div>
+                <div className="market-price-row">
+                  <span className="market-price">$340.00</span>
+                  <span className="market-stock">In Stock</span>
+                </div>
+                <div className="market-btn">Instant Checkout ⚡</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mockup-sheen" />
+      </div>
+    </div>
+  );
+}
+
+/* ── Interactive Skills Matrix ──────────────────────────────── */
+function SkillsMatrix() {
+  const [activeTab, setActiveTab] = useState('All');
+  const categories = ['All', 'Frontend', 'Backend', 'Systems'];
+
+  const filtered = activeTab === 'All'
+    ? skillsData
+    : skillsData.filter(s => s.category === activeTab);
+
+  return (
+    <div className="skills-matrix">
+      <div className="skills-tabs">
+        {categories.map(tab => (
+          <button
+            key={tab}
+            className={`skills-tab ${activeTab === tab ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab}
+            <span className="skills-tab-count">
+              {tab === 'All' ? skillsData.length : skillsData.filter(s => s.category === tab).length}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <motion.div layout className="skills-grid">
+        <AnimatePresence mode="popLayout">
+          {filtered.map(skill => (
+            <motion.div
+              layout
+              key={skill.name}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="skill-card"
+            >
+              <div className="skill-card-top">
+                <strong>{skill.name}</strong>
+                <span className="skill-level">{skill.level}</span>
+              </div>
+              <p className="skill-desc">{skill.desc}</p>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ── Project Case Study Slide-Over Modal ────────────────────── */
+function ProjectCaseStudyModal({ project, onClose }) {
+  if (!project) return null;
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <motion.div
+        className="case-study-modal"
+        initial={{ opacity: 0, scale: 0.95, y: 24 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 24 }}
+        transition={{ duration: 0.22 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="case-study-header">
+          <div>
+            <div className="case-study-eyebrow">
+              <span>{project.category}</span>
+              <span className="bullet">·</span>
+              <span>{project.year || '2025'}</span>
+              {project.metric && <span className="metric-badge">{project.metric}</span>}
+            </div>
+            <h2>{project.title}</h2>
+          </div>
+          <button className="icon-action close-btn" onClick={onClose} aria-label="Close modal">
+            <FiX />
+          </button>
+        </div>
+
+        <div className="case-study-body">
+          <div className="case-study-preview-wrapper">
+            <ProjectBrowserMockup project={project} />
+          </div>
+
+          <div className="case-study-content">
+            <div className="case-section">
+              <h3>Overview</h3>
+              <p>{project.description}</p>
+            </div>
+
+            {project.highlights && project.highlights.length > 0 && (
+              <div className="case-section">
+                <h3>Engineering Architecture & Wins</h3>
+                <ul className="case-highlights-list">
+                  {project.highlights.map((h, i) => (
+                    <li key={i}>
+                      <FiCheck className="highlight-check" />
+                      <span>{h}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="case-section">
+              <h3>Technologies</h3>
+              <div className="tag-row">
+                {project.tags.map(t => <span key={t}>{t}</span>)}
+              </div>
+            </div>
+
+            <div className="case-study-actions">
+              <a
+                href={project.liveUrl || 'https://github.com/kal400'}
+                target="_blank"
+                rel="noreferrer"
+                className="primary-button"
+              >
+                Visit Live Experience <Arrow />
+              </a>
+              <a
+                href={project.githubUrl || 'https://github.com/kal400'}
+                target="_blank"
+                rel="noreferrer"
+                className="secondary-button"
+              >
+                <FiGithub /> Source Code
+              </a>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ── Cmd + K Command Palette ─────────────────────────────────── */
+function CommandPalette({ open, onClose, onAction, onSelectProject }) {
+  const [query, setQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 60);
+      setQuery('');
+      setSelectedIndex(0);
+    }
+  }, [open]);
+
+  const allCommands = [
+    { id: 'home', label: 'Go to Home', group: 'Navigation', icon: FiArrowUpRight, action: () => { window.location.hash = '#home'; onClose(); } },
+    { id: 'about', label: 'Go to About Me', group: 'Navigation', icon: FiArrowUpRight, action: () => { window.location.hash = '#about'; onClose(); } },
+    { id: 'portfolio', label: 'Go to Selected Work', group: 'Navigation', icon: FiBriefcase, action: () => { window.location.hash = '#portfolio'; onClose(); } },
+    { id: 'skills', label: 'Go to Tech Stack & Matrix', group: 'Navigation', icon: FiCode, action: () => { window.location.hash = '#skills'; onClose(); } },
+    { id: 'contact', label: 'Go to Contact', group: 'Navigation', icon: FiMail, action: () => { window.location.hash = '#contact'; onClose(); } },
+
+    { id: 'copy-email', label: 'Copy Email Address (kaleabawoe@gmail.com)', group: 'Quick Actions', icon: FiCopy, action: () => onAction('copy-email') },
+    { id: 'toggle-theme', label: 'Toggle Light / Dark Theme', group: 'Quick Actions', icon: FiSun, action: () => onAction('toggle-theme') },
+    { id: 'github', label: 'Open GitHub Profile (@kal400)', group: 'Quick Actions', icon: FiGithub, action: () => window.open('https://github.com/kal400', '_blank') },
+    { id: 'linkedin', label: 'Open LinkedIn Profile', group: 'Quick Actions', icon: FiLinkedin, action: () => window.open('https://linkedin.com', '_blank') },
+
+    { id: 'proj-nova', label: 'Inspect Project: Nova Finance', group: 'Case Studies', icon: FiTrendingUp, action: () => onSelectProject('Nova Finance') },
+    { id: 'proj-form', label: 'Inspect Project: Form Studio', group: 'Case Studies', icon: FiLayout, action: () => onSelectProject('Form Studio') },
+    { id: 'proj-notes', label: 'Inspect Project: Field Notes', group: 'Case Studies', icon: FiEdit3, action: () => onSelectProject('Field Notes') },
+    { id: 'proj-ops', label: 'Inspect Project: Ops Board', group: 'Case Studies', icon: FiActivity, action: () => onSelectProject('Ops Board') },
+    { id: 'proj-market', label: 'Inspect Project: Market Home', group: 'Case Studies', icon: FiBriefcase, action: () => onSelectProject('Market Home') },
+  ];
+
+  const filtered = allCommands.filter(c =>
+    c.label.toLowerCase().includes(query.toLowerCase()) ||
+    c.group.toLowerCase().includes(query.toLowerCase())
+  );
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!open) return;
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex(i => (i + 1) % (filtered.length || 1));
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex(i => (i - 1 + (filtered.length || 1)) % (filtered.length || 1));
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (filtered[selectedIndex]) {
+          filtered[selectedIndex].action();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, filtered, selectedIndex, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="cmd-backdrop" onClick={onClose}>
+      <motion.div
+        className="cmd-dialog"
+        initial={{ opacity: 0, scale: 0.96, y: -20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: -20 }}
+        transition={{ duration: 0.18 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="cmd-search-bar">
+          <FiSearch className="cmd-search-icon" />
+          <input
+            ref={inputRef}
+            placeholder="Search commands, projects, actions..."
+            value={query}
+            onChange={e => { setQuery(e.target.value); setSelectedIndex(0); }}
+          />
+          <span className="cmd-esc-badge" onClick={onClose}>ESC</span>
+        </div>
+
+        <div className="cmd-results">
+          {filtered.length === 0 ? (
+            <div className="cmd-empty">No results found for "{query}"</div>
+          ) : (
+            filtered.map((item, idx) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.id}
+                  className={`cmd-item ${idx === selectedIndex ? 'selected' : ''}`}
+                  onClick={() => item.action()}
+                  onMouseEnter={() => setSelectedIndex(idx)}
+                >
+                  <div className="cmd-item-left">
+                    <span className="cmd-item-icon"><Icon /></span>
+                    <span className="cmd-item-label">{item.label}</span>
+                  </div>
+                  <span className="cmd-item-group">{item.group}</span>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="cmd-footer">
+          <span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
+          <span><kbd>↵</kbd> Select</span>
+          <span><kbd>esc</kbd> Close</span>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PUBLIC SITE
+══════════════════════════════════════════════════════════════ */
+function PublicSite() {
+  const [theme,           setTheme]           = useState(() => localStorage.getItem('kalab-theme') || 'dark');
+  const [menuOpen,        setMenuOpen]        = useState(false);
+  const [contact,         setContact]         = useState({ name: '', email: '', message: '' });
+  const [contactState,    setContactState]    = useState('idle');
+  const [photo,           setPhoto]           = useState(getStoredPhoto);
+  const [content,         setContent]         = useState(() => readStored(CONTENT_KEY, {}));
+  const [cmdOpen,         setCmdOpen]         = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [toast,           setToast]           = useState('');
+
+  const visibleProjects = content.projects?.length ? content.projects : projects;
+
+  useEffect(() => {
+    if (!supabase) return;
+    fetchPublicContent().then(remote => {
+      if (!remote) return;
+      setContent({ projects: remote.projects, skills: remote.skills });
+      if (remote.photo) setPhoto(remote.photo);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('kalab-theme', theme);
+  }, [theme]);
+
+  /* Scrub any legacy #admin hash or /admin path so it cannot work on this port */
+  useEffect(() => {
+    if (window.location.pathname.toLowerCase().startsWith('/admin')) {
+      window.history.replaceState(null, '', '/');
+    }
+    const sanitizeHash = () => {
+      if (window.location.hash.toLowerCase().startsWith('#admin')) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    };
+    sanitizeHash();
+    window.addEventListener('hashchange', sanitizeHash);
+    return () => window.removeEventListener('hashchange', sanitizeHash);
+  }, []);
+
+  /* Keyboard shortcut for Cmd + K or Ctrl + K */
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCmdOpen(prev => !prev);
+      }
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        setCmdOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  };
+
+  const handleCommandAction = (actionId) => {
+    if (actionId === 'copy-email') {
+      navigator.clipboard.writeText('kaleabawoe@gmail.com');
+      showToast('Email copied to clipboard (kaleabawoe@gmail.com)');
+      setCmdOpen(false);
+    }
+    if (actionId === 'toggle-theme') {
+      setTheme(t => t === 'dark' ? 'light' : 'dark');
+      setCmdOpen(false);
+    }
+  };
+
+  const handleSelectProjectByName = (name) => {
+    const found = visibleProjects.find(p => p.title.toLowerCase() === name.toLowerCase());
+    if (found) {
+      setSelectedProject(found);
+    }
+    setCmdOpen(false);
+  };
+
+  const submitContact = async (e) => {
+    e.preventDefault();
+    setContactState('sending');
+    if (supabase) {
+      const { error } = await supabase.from('messages').insert(contact);
+      if (error) { setContactState('error'); return; }
+    }
+    setContactState('sent');
+    setContact({ name: '', email: '', message: '' });
+  };
+
+  return (
+    <div className="reference-site">
+      {/* ── NAV ─────────────────────────────────────────────── */}
+      <header className="reference-nav">
+        <a className="reference-brand" href="#home">
+          <span>KA</span>
+          <strong>Kalab</strong>
+        </a>
+
+        <nav className={menuOpen ? 'reference-links open' : 'reference-links'}>
+          {navItems.map(item => (
+            <a key={item} href={`#${item.toLowerCase()}`} onClick={() => setMenuOpen(false)}>
+              {item}
+            </a>
+          ))}
+        </nav>
+
+        <div className="nav-actions">
+          <LiveClock />
+
+          <button
+            className="cmd-trigger-btn"
+            onClick={() => setCmdOpen(true)}
+            title="Open Command Palette (⌘K)"
+          >
+            <FiSearch />
+            <kbd>⌘K</kbd>
+          </button>
+
+          <button
+            className="theme-toggle"
+            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+            aria-label="Toggle colour theme"
+          >
+            {theme === 'dark' ? <FiSun /> : <FiMoon />}
+          </button>
+
+          <a className="nav-contact" href="#contact">
+            Hire me <Arrow />
+          </a>
+
+          <button className="mobile-toggle" onClick={() => setMenuOpen(o => !o)} aria-label="Toggle menu">
+            {menuOpen ? <FiX /> : <FiMenu />}
+          </button>
+        </div>
+      </header>
+
+      <main>
+        {/* ── HERO ──────────────────────────────────────────── */}
+        <motion.section
+          id="home"
+          className="reference-hero"
+          initial="hidden"
+          animate="show"
+          variants={stagger}
+        >
+          <div className="hero-glow glow-one" />
+          <div className="hero-glow glow-two" />
+          <div className="grid-overlay" />
+
+          <div className="hero-container">
+            <motion.div className="hero-content" variants={reveal}>
+              <div className="status-pill">
+                <span /> Available for opportunities
+              </div>
+
+              <h1>
+                Building digital<br />
+                products with{' '}
+                <span>clarity.</span>
+              </h1>
+
+              <p className="hero-role">Frontend-first · Full-stack developer</p>
+
+              <p className="hero-copy">
+                I'm Kalab Awoke, a developer based in Addis Ababa building
+                production-minded web experiences across product, commerce,
+                and internal tools.
+              </p>
+
+              <div className="hero-buttons">
+                <a className="primary-button" href="#portfolio">View my work <Arrow /></a>
+                <a className="secondary-button" href="#contact">Let's connect <Arrow /></a>
+              </div>
+
+              <div className="social-row">
+                <a href="https://github.com/kal400" target="_blank" rel="noreferrer">
+                  <FiGithub /> GitHub
+                </a>
+                <a href="https://www.linkedin.com" target="_blank" rel="noreferrer">
+                  <FiLinkedin /> LinkedIn
+                </a>
+                <a href="mailto:kaleabawoe@gmail.com">
+                  <FiMail /> Email
+                </a>
+              </div>
+            </motion.div>
+
+            <motion.div className="hero-visual" variants={reveal}>
+              <ExecutivePortrait src={photo} />
+            </motion.div>
+          </div>
+
+          <div className="hero-mark">KA <span>01</span></div>
+        </motion.section>
+
+        {/* ── STATS STRIP ───────────────────────────────────── */}
+        <motion.section
+          className="stats-strip"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.4 }}
+          variants={stagger}
+        >
+          {[['3+', 'Years building'], ['12', 'Core tools'], ['∞', 'Curiosity']].map(([value, label]) => (
+            <motion.div variants={reveal} key={label}>
+              <strong>{value}</strong>
+              <span>{label}</span>
+            </motion.div>
+          ))}
+          <p>From the first sketch<br />to the last detail.</p>
+        </motion.section>
+
+        {/* ── ABOUT ─────────────────────────────────────────── */}
+        <Section id="about" number="01" title="About me">
+          <div className="about-grid">
+            <motion.div variants={reveal}>
+              <h2>Full-stack thinking,<br /><em>frontend-first</em> craft.</h2>
+            </motion.div>
+            <motion.div className="about-copy" variants={reveal}>
+              <p>
+                I care about making digital products feel obvious in the best way.
+                That means clear decisions, thoughtful interfaces, and code that
+                stays understandable after launch.
+              </p>
+              <p>
+                My work sits between product thinking, visual systems, and
+                implementation. I'm comfortable moving from an open question to
+                a responsive interface, a working data flow, and the details that
+                make a product feel trustworthy.
+              </p>
+              <a className="inline-link" href="#contact">
+                More about my approach <Arrow />
+              </a>
+            </motion.div>
+          </div>
+        </Section>
+
+        {/* ── PROCESS ───────────────────────────────────────── */}
+        <Section id="process" number="02" title="How I work" className="process-section">
+          <h2 className="section-title">A useful process for <em>real work.</em></h2>
+          <motion.div className="process-grid" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.25 }}>
+            {process.map(([number, title, copy]) => (
+              <motion.article variants={reveal} key={number}>
+                <span className="process-number">{number}</span>
+                <h3>{title}</h3>
+                <p>{copy}</p>
+                <span className="process-line" />
+              </motion.article>
+            ))}
+          </motion.div>
+        </Section>
+
+        {/* ── SKILLS ────────────────────────────────────────── */}
+        <Section id="skills" number="03" title="Skills & Architecture">
+          <div className="skills-layout-wide">
+            <div className="skills-heading-row">
+              <div>
+                <h2>Tools for making<br /><em>reliable systems.</em></h2>
+                <p>Categorized disciplines across frontend architecture, cloud data layers, and production engineering.</p>
+              </div>
+            </div>
+            <SkillsMatrix />
+          </div>
+        </Section>
+
+        {/* ── PORTFOLIO ─────────────────────────────────────── */}
+        <Section id="portfolio" number="04" title="Selected work" className="portfolio-section">
+          <div className="portfolio-heading">
+            <div>
+              <h2>Projects I've <em>engineered.</em></h2>
+              <p>Interactive case studies across finance, design systems, editorial platforms, and distributed tools.</p>
+            </div>
+            <span className="portfolio-hint">Click any project to inspect case study</span>
+          </div>
+
+          <motion.div className="portfolio-grid" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.15 }}>
+            {visibleProjects.map((project, index) => (
+              <motion.article
+                variants={reveal}
+                whileHover={{ y: -6 }}
+                className="portfolio-card clickable-card"
+                key={project.title}
+                onClick={() => setSelectedProject(project)}
+              >
+                <div className="project-mockup-frame">
+                  <ProjectBrowserMockup project={project} />
+                </div>
+
+                <div className="project-details">
+                  <div>
+                    <div className="project-meta-row">
+                      <span className="project-category">{project.category}</span>
+                      {project.metric && <span className="project-metric-pill">{project.metric}</span>}
+                    </div>
+                    <h3>{project.title}</h3>
+                    <p>{project.description}</p>
+                    <div className="tag-row">
+                      {project.tags.map(tag => <span key={tag}>{tag}</span>)}
+                    </div>
+                  </div>
+                  <div className="inspect-cta">
+                    <span>Inspect</span>
+                    <Arrow />
+                  </div>
+                </div>
+              </motion.article>
+            ))}
+          </motion.div>
+        </Section>
+
+        {/* ── SERVICES ──────────────────────────────────────── */}
+        <Section id="services" number="05" title="What I build">
+          <div className="service-list">
+            {[
+              ['01', 'Product interfaces',       'Responsive frontend systems that make complicated workflows feel calm and clear.'],
+              ['02', 'Full-stack foundations',    'Auth, data flows, APIs, dashboards, and the dependable parts behind the interface.'],
+              ['03', 'Design-minded development', 'A strong visual point of view carried through spacing, states, motion, and accessibility.'],
+            ].map(([num, title, copy]) => (
+              <motion.article whileHover={{ y: -8 }} key={num}>
+                <span>{num}</span>
+                <h3>{title}</h3>
+                <p>{copy}</p>
+                <Arrow />
+              </motion.article>
+            ))}
+          </div>
+        </Section>
+
+        {/* ── CONTACT ───────────────────────────────────────── */}
+        <section id="contact" className="contact-section">
+          <div className="section-kicker"><span />06 — Contact</div>
+          <h2>Have a good idea?<br /><em>Let's make it real.</em></h2>
+          <div className="contact-grid">
+            <div>
+              <p>
+                Open to thoughtful collaborations, product teams, and
+                opportunities where good work has room to matter.
+              </p>
+              <a className="contact-email" href="mailto:kaleabawoe@gmail.com">
+                kaleabawoe@gmail.com <Arrow />
+              </a>
+              <div className="contact-tz-note">
+                <FiClock /> Addis Ababa (UTC+3) · Available for worldwide remote work
+              </div>
+            </div>
+            <form onSubmit={submitContact}>
+              <label>
+                Name
+                <input required value={contact.name} onChange={e => setContact({ ...contact, name: e.target.value })} />
+              </label>
+              <label>
+                Email
+                <input required type="email" value={contact.email} onChange={e => setContact({ ...contact, email: e.target.value })} />
+              </label>
+              <label>
+                Message
+                <textarea required rows="4" value={contact.message} onChange={e => setContact({ ...contact, message: e.target.value })} />
+              </label>
+              <button className="primary-button" disabled={contactState === 'sending'}>
+                {contactState === 'sending' ? 'Sending…' : contactState === 'sent' ? 'Message sent ✓' : 'Send message'} <Arrow />
+              </button>
+              {contactState === 'error' && <small>Could not send — please email me directly.</small>}
+            </form>
+          </div>
+        </section>
+      </main>
+
+      <footer className="reference-footer">
+        <span>© 2026 Kalab Awoke</span>
+        <LiveClock />
+        <a href="#home">Back to top ↑</a>
+      </footer>
+
+      {/* ── Command Palette Modal ───────────────────────────── */}
+      <AnimatePresence>
+        {cmdOpen && (
+          <CommandPalette
+            open={cmdOpen}
+            onClose={() => setCmdOpen(false)}
+            onAction={handleCommandAction}
+            onSelectProject={handleSelectProjectByName}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Project Case Study Modal ────────────────────────── */}
+      <AnimatePresence>
+        {selectedProject && (
+          <ProjectCaseStudyModal
+            project={selectedProject}
+            onClose={() => setSelectedProject(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Instant Toast ───────────────────────────────────── */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            className="toast-notification"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+          >
+            <FiCheckCircle />
+            <span>{toast}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <PublicSite />
+  </React.StrictMode>
+);
