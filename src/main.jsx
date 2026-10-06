@@ -311,13 +311,15 @@ function ProjectBrowserMockup({ project }) {
 
 /* ── Interactive Skills Matrix ──────────────────────────────── */
 function SkillsMatrix({ skills = skillsData }) {
-  const [activeTab, setActiveTab] = useState('All');
-  const categories = ['All', 'Frontend', 'Backend', 'Systems'];
   const list = (skills && skills.length > 0) ? skills : skillsData;
+  const dynamicCats = ['All', ...new Set(list.map(s => s?.category).filter(Boolean))];
+  const [activeTab, setActiveTab] = useState('All');
+  const categories = dynamicCats.length > 1 ? dynamicCats : ['All', 'Frontend', 'Backend', 'Systems'];
+  const currentTab = categories.includes(activeTab) ? activeTab : 'All';
 
-  const filtered = activeTab === 'All'
+  const filtered = currentTab === 'All'
     ? list
-    : list.filter(s => s.category === activeTab);
+    : list.filter(s => s && s.category === currentTab);
 
   return (
     <div className="skills-matrix">
@@ -325,12 +327,12 @@ function SkillsMatrix({ skills = skillsData }) {
         {categories.map(tab => (
           <button
             key={tab}
-            className={`skills-tab ${activeTab === tab ? 'active' : ''}`}
+            className={`skills-tab ${currentTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
             {tab}
             <span className="skills-tab-count">
-              {tab === 'All' ? list.length : list.filter(s => s.category === tab).length}
+              {tab === 'All' ? list.length : list.filter(s => s?.category === tab).length}
             </span>
           </button>
         ))}
@@ -338,10 +340,10 @@ function SkillsMatrix({ skills = skillsData }) {
 
       <motion.div layout className="skills-grid">
         <AnimatePresence mode="popLayout">
-          {filtered.map(skill => (
+          {filtered.map((skill, idx) => (
             <motion.div
               layout
-              key={skill.name}
+              key={skill.id || skill.name || `skill-${idx}`}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -418,7 +420,7 @@ function ProjectCaseStudyModal({ project, onClose }) {
             <div className="case-section">
               <h3>Technologies</h3>
               <div className="tag-row">
-                {project.tags.map(t => <span key={t}>{t}</span>)}
+                {(project.tags || project.tech_stack || []).map(t => <span key={t}>{t}</span>)}
               </div>
             </div>
 
@@ -574,13 +576,22 @@ function PublicSite() {
   const [contact,         setContact]         = useState({ name: '', email: '', message: '' });
   const [contactState,    setContactState]    = useState('idle');
   const [photo,           setPhoto]           = useState(getStoredPhoto);
-  const [content,         setContent]         = useState(() => readStored(CONTENT_KEY, {}));
+  const [content,         setContent]         = useState(() => {
+    const stored = readStored(CONTENT_KEY, {});
+    if (stored && Array.isArray(stored.projects)) {
+      stored.projects = stored.projects.map((p, idx) => ({
+        ...p,
+        tags: Array.isArray(p.tags) && p.tags.length ? p.tags : (Array.isArray(p.tech_stack) ? p.tech_stack : [])
+      }));
+    }
+    return stored || {};
+  });
   const [cmdOpen,         setCmdOpen]         = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [toast,           setToast]           = useState('');
 
-  const visibleProjects = content.projects?.length ? content.projects : projects;
-  const visibleSkills = content.skills?.length ? content.skills : skillsData;
+  const visibleProjects = (content.projects && content.projects.length) ? content.projects : projects;
+  const visibleSkills = (content.skills && content.skills.length) ? content.skills : skillsData;
 
   useEffect(() => {
     if (!supabase) return;
@@ -597,7 +608,9 @@ function PublicSite() {
           skills: remote.skills
         }));
       } catch {}
-    }).catch(() => {});
+    }).catch(err => {
+      console.warn('Could not load remote content:', err);
+    });
   }, []);
 
   useEffect(() => {
@@ -1032,7 +1045,7 @@ function PublicSite() {
                     <h3>{project.title}</h3>
                     <p>{project.description}</p>
                     <div className="tag-row">
-                      {project.tags.map(tag => <span key={tag}>{tag}</span>)}
+                      {(project.tags || project.tech_stack || []).map(tag => <span key={tag}>{tag}</span>)}
                     </div>
                   </div>
                   <div className="inspect-cta">
@@ -1148,8 +1161,45 @@ function PublicSite() {
   );
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err, info) {
+    console.error('Portfolio site error caught by ErrorBoundary:', err, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#080b10', color: '#e6edf3', fontFamily: 'sans-serif', padding: '24px', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '24px', marginBottom: '12px' }}>Portfolio Refreshing</h2>
+          <p style={{ color: '#8b949e', marginBottom: '20px' }}>An update is being applied. Click below to reload cleanly.</p>
+          <button
+            onClick={() => {
+              try {
+                localStorage.removeItem(CONTENT_KEY);
+              } catch {}
+              window.location.reload();
+            }}
+            style={{ padding: '10px 20px', borderRadius: '8px', background: '#3b82f6', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+          >
+            Clear Cache & Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <PublicSite />
+    <ErrorBoundary>
+      <PublicSite />
+    </ErrorBoundary>
   </React.StrictMode>
 );

@@ -325,9 +325,8 @@ function AdminDashboard({ user, onLogout }) {
   // Skill Actions
   const handleSaveSkill = async (item) => {
     let updated;
-    const existingIndex = skillList.findIndex(s => s.name.toLowerCase() === item.name.toLowerCase());
-    if (existingIndex >= 0 && skillModal !== 'new') {
-      updated = skillList.map((s, i) => i === existingIndex ? item : s);
+    if (skillModal && typeof skillModal === 'object' && skillModal._index !== undefined) {
+      updated = skillList.map((s, i) => i === skillModal._index ? item : s);
       showToast(`Updated skill "${item.name}".`);
     } else {
       updated = [...skillList, item];
@@ -515,7 +514,7 @@ function AdminDashboard({ user, onLogout }) {
               <AdminSkillsManager
                 skills={skillList}
                 onNew={() => setSkillModal('new')}
-                onEdit={(s) => setSkillModal(s)}
+                onEdit={(s, i) => setSkillModal({ ...s, _index: i })}
                 onDelete={handleDeleteSkill}
               />
             )}
@@ -799,7 +798,7 @@ function AdminSkillsManager({ skills, onNew, onEdit, onDelete }) {
               <span className="skill-level-tag">{skill.level || 'Production'}</span>
               <p className="skill-desc-text">{skill.desc || 'Architectural specialization.'}</p>
               <div className="skill-card-footer">
-                <button className="icon-action" onClick={() => onEdit(skill)} title="Edit skill"><FiEdit3 /></button>
+                <button className="icon-action" onClick={() => onEdit(skill, originalIndex >= 0 ? originalIndex : index)} title="Edit skill"><FiEdit3 /></button>
                 <button className="icon-action danger" onClick={() => onDelete(originalIndex >= 0 ? originalIndex : index)} title="Delete skill"><FiTrash2 /></button>
               </div>
             </div>

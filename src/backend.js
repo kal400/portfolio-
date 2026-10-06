@@ -4,6 +4,56 @@ const url = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUP
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 export const supabase = url && key ? createClient(url, key) : null;
 
+function normalizeProject(p, idx) {
+  if (!p) return null;
+  const tags = Array.isArray(p.tags) && p.tags.length
+    ? p.tags
+    : (Array.isArray(p.tech_stack) ? p.tech_stack : []);
+  return {
+    ...p,
+    id: p.id || `proj-${idx + 1}`,
+    title: p.title || 'Untitled Project',
+    category: p.category || 'General',
+    description: p.description || '',
+    tags,
+    tech_stack: tags,
+    tone: p.tone || 'blue',
+    featured: Boolean(p.featured),
+    published: p.published !== false,
+    year: p.year || '2025',
+    metric: p.metric || '',
+    url: p.url || p.live_url || p.liveUrl || '',
+    liveUrl: p.liveUrl || p.live_url || 'https://github.com/kal400',
+    githubUrl: p.githubUrl || p.repo_url || 'https://github.com/kal400',
+    highlights: Array.isArray(p.highlights) ? p.highlights : []
+  };
+}
+
+function normalizeSkill(s, idx) {
+  if (!s) return null;
+  return {
+    id: s.id || `skill-${idx + 1}`,
+    name: s.name || '',
+    category: s.category || 'Frontend',
+    level: s.level || 'Proficient',
+    desc: s.desc || '',
+    sort_order: s.sort_order || idx + 1
+  };
+}
+
+function normalizeExperience(e, idx) {
+  if (!e) return null;
+  return {
+    id: e.id || `exp-${idx + 1}`,
+    role: e.role || '',
+    company: e.company || '',
+    period: e.period || e.date_range || '',
+    date_range: e.date_range || e.period || '',
+    description: e.description || '',
+    sort_order: e.sort_order || idx + 1
+  };
+}
+
 export async function fetchPublicContent() {
   if (!supabase) return null;
   try {
@@ -19,23 +69,36 @@ export async function fetchPublicContent() {
 
     let fullProjects = null;
     if (settingsMap['projects_list']) {
-      try { fullProjects = JSON.parse(settingsMap['projects_list']); } catch {}
+      try {
+        const parsed = JSON.parse(settingsMap['projects_list']);
+        if (Array.isArray(parsed) && parsed.length > 0) fullProjects = parsed;
+      } catch {}
     }
 
     let fullSkills = null;
     if (settingsMap['skills_list']) {
-      try { fullSkills = JSON.parse(settingsMap['skills_list']); } catch {}
+      try {
+        const parsed = JSON.parse(settingsMap['skills_list']);
+        if (Array.isArray(parsed) && parsed.length > 0) fullSkills = parsed;
+      } catch {}
     }
 
     let fullExp = null;
     if (settingsMap['experience_list']) {
-      try { fullExp = JSON.parse(settingsMap['experience_list']); } catch {}
+      try {
+        const parsed = JSON.parse(settingsMap['experience_list']);
+        if (Array.isArray(parsed) && parsed.length > 0) fullExp = parsed;
+      } catch {}
     }
 
+    const rawProjects = fullProjects || (projects || []);
+    const rawSkills = fullSkills || (skills || []);
+    const rawExp = fullExp || (experience || []);
+
     return {
-      projects: fullProjects || (projects || []).map((item) => ({ ...item, tags: item.tech_stack || [] })),
-      skills: fullSkills || skills || [],
-      experience: fullExp || (experience || []).map(e => ({ ...e, period: e.date_range })),
+      projects: rawProjects.map(normalizeProject).filter(Boolean),
+      skills: rawSkills.map(normalizeSkill).filter(Boolean),
+      experience: rawExp.map(normalizeExperience).filter(Boolean),
       photo: settingsMap['profile_photo_url'] || null
     };
   } catch (err) {
@@ -60,23 +123,36 @@ export async function fetchAdminContent() {
 
     let fullProjects = null;
     if (settingsMap['projects_list']) {
-      try { fullProjects = JSON.parse(settingsMap['projects_list']); } catch {}
+      try {
+        const parsed = JSON.parse(settingsMap['projects_list']);
+        if (Array.isArray(parsed) && parsed.length > 0) fullProjects = parsed;
+      } catch {}
     }
 
     let fullSkills = null;
     if (settingsMap['skills_list']) {
-      try { fullSkills = JSON.parse(settingsMap['skills_list']); } catch {}
+      try {
+        const parsed = JSON.parse(settingsMap['skills_list']);
+        if (Array.isArray(parsed) && parsed.length > 0) fullSkills = parsed;
+      } catch {}
     }
 
     let fullExp = null;
     if (settingsMap['experience_list']) {
-      try { fullExp = JSON.parse(settingsMap['experience_list']); } catch {}
+      try {
+        const parsed = JSON.parse(settingsMap['experience_list']);
+        if (Array.isArray(parsed) && parsed.length > 0) fullExp = parsed;
+      } catch {}
     }
 
+    const rawProjects = fullProjects || (projects || []);
+    const rawSkills = fullSkills || (skills || []);
+    const rawExp = fullExp || (experience || []);
+
     return {
-      projects: fullProjects || (projects || []).map((item) => ({ ...item, tags: item.tech_stack || [] })),
-      skills: fullSkills || skills || [],
-      experience: fullExp || (experience || []).map(e => ({ ...e, period: e.date_range })),
+      projects: rawProjects.map(normalizeProject).filter(Boolean),
+      skills: rawSkills.map(normalizeSkill).filter(Boolean),
+      experience: rawExp.map(normalizeExperience).filter(Boolean),
       messages: messages || [],
       photo: settingsMap['profile_photo_url'] || null
     };
@@ -89,12 +165,13 @@ export async function fetchAdminContent() {
 export async function saveProjectsList(projects) {
   if (!supabase) return;
   try {
+    const cleanProjects = (projects || []).map((p, idx) => normalizeProject(p, idx)).filter(Boolean);
     await supabase.from('site_settings').upsert({
       key: 'projects_list',
-      value: JSON.stringify(projects)
+      value: JSON.stringify(cleanProjects)
     });
-    for (let i = 0; i < projects.length; i++) {
-      const p = projects[i];
+    for (let i = 0; i < cleanProjects.length; i++) {
+      const p = cleanProjects[i];
       const dbRow = {
         title: p.title,
         category: p.category,
