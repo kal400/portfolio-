@@ -47,15 +47,37 @@ export async function createSimpleRecord(table, record) {
   return supabase.from(table).insert(record).select().single();
 }
 
-export async function uploadProfilePhoto(file) {
-  if (!supabase) return { url: null, error: null };
-  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-  const path = `profile/hero-${Date.now()}.${extension}`;
-  const upload = await supabase.storage.from('portfolio-assets').upload(path, file, { upsert: true, contentType: file.type });
-  if (upload.error) return { url: null, error: upload.error };
-  const { data } = supabase.storage.from('portfolio-assets').getPublicUrl(path);
-  const setting = await supabase.from('site_settings').upsert({ key: 'profile_photo_url', value: data.publicUrl }).select().single();
-  return { url: data.publicUrl, error: setting.error };
+export async function uploadProfilePhoto(file, base64Fallback = null) {
+  if (!supabase) return { url: base64Fallback, error: null };
+  let photoUrl = null;
+
+  // 1. Try uploading to storage bucket if available
+  try {
+    const extension = file?.name?.split('.').pop()?.toLowerCase() || 'jpg';
+    const path = `profile/hero-${Date.now()}.${extension}`;
+    const upload = await supabase.storage.from('portfolio-assets').upload(path, file, { upsert: true, contentType: file?.type || 'image/jpeg' });
+    if (!upload.error) {
+      const { data } = supabase.storage.from('portfolio-assets').getPublicUrl(path);
+      photoUrl = data?.publicUrl;
+    }
+  } catch (err) {
+    // Storage bucket unavailable, proceed to database fallback
+  }
+
+  // 2. Direct database persistence via site_settings
+  if (!photoUrl && base64Fallback) {
+    photoUrl = base64Fallback;
+  }
+
+  if (photoUrl) {
+    const setting = await supabase.from('site_settings').upsert({
+      key: 'profile_photo_url',
+      value: photoUrl
+    }).select().single();
+    return { url: photoUrl, error: setting.error };
+  }
+
+  return { url: null, error: { message: 'Could not upload or encode photo.' } };
 }
 
 export async function markMessageRead(id) {

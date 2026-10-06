@@ -118,7 +118,7 @@ function AdminLogin({ onLogin }) {
     <motion.div className="admin-shell auth-shell" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <motion.div className="auth-card" initial={{ y: 28, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}>
         <div className="auth-header-row">
-          <a className="reference-brand" href="http://localhost:5175/">
+          <a className="reference-brand" href="/">
             <span>KA</span><strong>Kalab</strong>
           </a>
           <span className="auth-badge">
@@ -160,7 +160,7 @@ function AdminLogin({ onLogin }) {
         </form>
 
         <div className="auth-footer-nav" style={{ marginTop: '28px' }}>
-          <a href="http://localhost:5175/">← Return to Public Portfolio (Port 5175)</a>
+          <a href="/">← Return to Public Portfolio</a>
         </div>
       </motion.div>
     </motion.div>
@@ -221,28 +221,60 @@ function AdminDashboard({ user, onLogout }) {
   // Project Actions
   const handleSaveProject = async (item) => {
     let updated;
-    if (item.id && projectList.some(p => p.id === item.id)) {
-      updated = projectList.map(p => p.id === item.id ? item : p);
-      if (supabase && item.id.length > 10) {
-        await updateRecord('projects', item.id, {
-          title: item.title,
-          category: item.category,
-          description: item.description,
-          tech_stack: item.tags,
-          featured: item.featured,
-          tone: item.tone,
-          url: item.url,
-          metric: item.metric
-        });
-      }
-      showToast(`Updated "${item.title}" successfully.`);
-    } else {
-      const newObj = { ...item, id: item.id || `proj-${Date.now()}` };
-      updated = [newObj, ...projectList];
+    const isExisting = projectList.some(p => p.id === item.id || p.title.toLowerCase() === item.title.toLowerCase());
+
+    if (isExisting) {
+      updated = projectList.map(p => (p.id === item.id || p.title.toLowerCase() === item.title.toLowerCase()) ? item : p);
       if (supabase) {
-        await createProject(newObj);
+        try {
+          if (typeof item.id === 'number' || /^\d+$/.test(String(item.id))) {
+            await updateRecord('projects', item.id, {
+              title: item.title,
+              category: item.category,
+              description: item.description,
+              tech_stack: item.tags || [],
+              featured: Boolean(item.featured),
+              published: true,
+              tone: item.tone,
+              url: item.url,
+              metric: item.metric
+            });
+          } else {
+            const { data: existingDb } = await supabase.from('projects').select('id').eq('title', item.title).limit(1);
+            if (existingDb && existingDb.length > 0) {
+              await updateRecord('projects', existingDb[0].id, {
+                title: item.title,
+                category: item.category,
+                description: item.description,
+                tech_stack: item.tags || [],
+                featured: Boolean(item.featured),
+                published: true,
+                tone: item.tone,
+                url: item.url,
+                metric: item.metric
+              });
+            } else {
+              const { data: created } = await createProject(item);
+              if (created?.id) item.id = created.id;
+            }
+          }
+        } catch (e) {
+          console.error('Supabase project sync error:', e);
+        }
       }
-      showToast(`Created "${item.title}" successfully.`);
+      showToast(`Updated "${item.title}".`);
+    } else {
+      const newObj = { ...item };
+      if (supabase) {
+        try {
+          const { data: created } = await createProject(newObj);
+          if (created?.id) newObj.id = created.id;
+        } catch (e) {
+          console.error('Supabase project create error:', e);
+        }
+      }
+      updated = [newObj, ...projectList];
+      showToast(`Created "${item.title}".`);
     }
     setProjectList(updated);
     persist(updated, skillList, experienceList);
@@ -254,7 +286,13 @@ function AdminDashboard({ user, onLogout }) {
     if (!window.confirm(`Delete "${item.title}"?`)) return;
     const updated = projectList.filter((_, i) => i !== index);
     if (supabase && item.id) {
-      await removeRecord('projects', item.id);
+      try {
+        if (typeof item.id === 'number' || /^\d+$/.test(String(item.id))) {
+          await removeRecord('projects', item.id);
+        } else {
+          await supabase.from('projects').delete().eq('title', item.title);
+        }
+      } catch (e) {}
     }
     setProjectList(updated);
     persist(updated, skillList, experienceList);
@@ -262,16 +300,28 @@ function AdminDashboard({ user, onLogout }) {
   };
 
   // Skill Actions
-  const handleSaveSkill = (item) => {
+  const handleSaveSkill = async (item) => {
     let updated;
     const existingIndex = skillList.findIndex(s => s.name.toLowerCase() === item.name.toLowerCase());
     if (existingIndex >= 0 && skillModal !== 'new') {
       updated = skillList.map((s, i) => i === existingIndex ? item : s);
+      if (supabase) {
+        try {
+          const { data: existingDb } = await supabase.from('skills').select('id').eq('name', item.name).limit(1);
+          if (existingDb && existingDb.length > 0) {
+            await updateRecord('skills', existingDb[0].id, { category: item.category });
+          } else {
+            await createSimpleRecord('skills', { name: item.name, category: item.category, sort_order: existingIndex });
+          }
+        } catch (e) {}
+      }
       showToast(`Updated skill "${item.name}".`);
     } else {
       updated = [...skillList, item];
       if (supabase) {
-        createSimpleRecord('skills', { name: item.name, category: item.category.toLowerCase(), sort_order: skillList.length });
+        try {
+          await createSimpleRecord('skills', { name: item.name, category: item.category, sort_order: skillList.length });
+        } catch (e) {}
       }
       showToast(`Added skill "${item.name}".`);
     }
@@ -280,24 +330,48 @@ function AdminDashboard({ user, onLogout }) {
     setSkillModal(null);
   };
 
-  const handleDeleteSkill = (index) => {
+  const handleDeleteSkill = async (index) => {
     const item = skillList[index];
     const updated = skillList.filter((_, i) => i !== index);
+    if (supabase) {
+      try {
+        await supabase.from('skills').delete().eq('name', item.name);
+      } catch (e) {}
+    }
     setSkillList(updated);
     persist(projectList, updated, experienceList);
     showToast(`Removed "${item.name}".`);
   };
 
   // Experience Actions
-  const handleSaveExperience = (item) => {
+  const handleSaveExperience = async (item) => {
     let updated;
     if (experienceModal && typeof experienceModal === 'object' && experienceModal._index !== undefined) {
       updated = experienceList.map((e, i) => i === experienceModal._index ? item : e);
+      if (supabase) {
+        try {
+          const { data: existingDb } = await supabase.from('experience').select('id').eq('role', item.role).limit(1);
+          if (existingDb && existingDb.length > 0) {
+            await updateRecord('experience', existingDb[0].id, {
+              company: item.company,
+              date_range: item.period,
+              description: item.description
+            });
+          }
+        } catch (e) {}
+      }
       showToast(`Updated "${item.role}".`);
     } else {
       updated = [item, ...experienceList];
       if (supabase) {
-        createSimpleRecord('experience', { role: item.role, company: item.company, date_range: item.period, description: item.description });
+        try {
+          await createSimpleRecord('experience', {
+            role: item.role,
+            company: item.company,
+            date_range: item.period,
+            description: item.description
+          });
+        } catch (e) {}
       }
       showToast(`Added "${item.role}".`);
     }
@@ -340,6 +414,12 @@ function AdminDashboard({ user, onLogout }) {
 
   return (
     <motion.div className="admin-shell" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      {sidebarOpen && (
+        <div
+          className="admin-sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       <aside className={sidebarOpen ? 'admin-sidebar is-open' : 'admin-sidebar'}>
         <div className="admin-brand-row">
           <a className="reference-brand" href="/">
@@ -857,19 +937,30 @@ function AdminAppearanceManager({ onToast }) {
     if (!file || !file.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = async () => {
-      localStorage.setItem(PHOTO_KEY, reader.result);
-      setPhoto(reader.result);
+      const dataUrl = reader.result;
+      localStorage.setItem(PHOTO_KEY, dataUrl);
+      setPhoto(dataUrl);
       if (supabase) {
-        await uploadProfilePhoto(file);
+        onToast('Uploading portrait to cloud database…');
+        const res = await uploadProfilePhoto(file, dataUrl);
+        if (res.error) {
+          onToast(`⚠️ Saved locally, cloud sync error: ${res.error.message || res.error}`);
+        } else {
+          onToast('✓ Portrait synchronized to live cloud database!');
+        }
+      } else {
+        onToast('Portrait updated and saved.');
       }
-      onToast('Portrait updated and saved to portfolio.');
     };
     reader.readAsDataURL(file);
   };
 
-  const resetPhoto = () => {
+  const resetPhoto = async () => {
     localStorage.removeItem(PHOTO_KEY);
     setPhoto(defaultPhoto);
+    if (supabase) {
+      await supabase.from('site_settings').delete().eq('key', 'profile_photo_url');
+    }
     onToast('Restored default hero photograph.');
   };
 

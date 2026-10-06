@@ -23,5 +23,13 @@ export default defineConfig({
   server: {
     port: 5175,
     strictPort: true
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        admin: 'admin-app/index.html'
+      }
+    }
   }
 });

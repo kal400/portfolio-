@@ -609,7 +609,30 @@ function PublicSite() {
     return () => window.removeEventListener('hashchange', sanitizeHash);
   }, []);
 
-  /* Keyboard shortcut for Cmd + K or Ctrl + K */
+  /* Lock body scroll when mobile menu is open */
+  useEffect(() => {
+    if (menuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [menuOpen]);
+
+  /* Close mobile menu on desktop resize */
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 800 && menuOpen) {
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [menuOpen]);
+
+  /* Keyboard shortcut for Cmd + K, /, and Escape */
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -620,10 +643,13 @@ function PublicSite() {
         e.preventDefault();
         setCmdOpen(true);
       }
+      if (e.key === 'Escape') {
+        if (menuOpen) setMenuOpen(false);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [menuOpen]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -663,16 +689,16 @@ function PublicSite() {
 
   return (
     <div className="reference-site">
-      {/* ── NAV ─────────────────────────────────────────────── */}
+      {/* ── NAV (Desktop & Mobile Topbar) ──────────────────── */}
       <header className="reference-nav">
         <a className="reference-brand" href="#home">
           <span>KA</span>
           <strong>Kalab</strong>
         </a>
 
-        <nav className={menuOpen ? 'reference-links open' : 'reference-links'}>
+        <nav className="reference-links desktop-only">
           {navItems.map(item => (
-            <a key={item} href={`#${item.toLowerCase()}`} onClick={() => setMenuOpen(false)}>
+            <a key={item} href={`#${item.toLowerCase()}`}>
               {item}
             </a>
           ))}
@@ -702,11 +728,137 @@ function PublicSite() {
             Hire me <Arrow />
           </a>
 
-          <button className="mobile-toggle" onClick={() => setMenuOpen(o => !o)} aria-label="Toggle menu">
-            {menuOpen ? <FiX /> : <FiMenu />}
+          <button
+            className="mobile-toggle"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open navigation sidebar"
+          >
+            <FiMenu />
           </button>
         </div>
       </header>
+
+      {/* ── MOBILE SIDEBAR DRAWER (Slide-over with Backdrop) ── */}
+      <AnimatePresence>
+        {menuOpen && (
+          <div className="mobile-drawer-portal">
+            <motion.div
+              key="drawer-backdrop"
+              className="mobile-drawer-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              onClick={() => setMenuOpen(false)}
+            />
+            <motion.aside
+              key="drawer-panel"
+              className="mobile-drawer"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+            >
+              <div className="mobile-drawer-header">
+                <a
+                  className="reference-brand"
+                  href="#home"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span>KA</span>
+                  <strong>Kalab Awoke</strong>
+                </a>
+                <button
+                  className="mobile-drawer-close"
+                  onClick={() => setMenuOpen(false)}
+                  aria-label="Close sidebar"
+                >
+                  <FiX />
+                </button>
+              </div>
+
+              <div className="mobile-drawer-scroll">
+                <div className="mobile-drawer-section-label">Navigation</div>
+                <nav className="mobile-drawer-nav">
+                  {navItems.map((item, idx) => (
+                    <a
+                      key={item}
+                      href={`#${item.toLowerCase()}`}
+                      className="mobile-nav-link"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <span className="mobile-nav-num">0{idx + 1}</span>
+                      <span className="mobile-nav-label">{item}</span>
+                      <FiChevronRight className="mobile-nav-arrow" />
+                    </a>
+                  ))}
+                </nav>
+
+                <div className="mobile-drawer-divider" />
+
+                <div className="mobile-drawer-section-label">Quick Actions</div>
+                <div className="mobile-drawer-actions">
+                  <button
+                    className="mobile-action-card"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setCmdOpen(true);
+                    }}
+                  >
+                    <div className="mobile-action-icon"><FiSearch /></div>
+                    <div className="mobile-action-text">
+                      <strong>Command Palette</strong>
+                      <small>Search portfolio & shortcuts</small>
+                    </div>
+                    <kbd>⌘K</kbd>
+                  </button>
+
+                  <button
+                    className="mobile-action-card"
+                    onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+                  >
+                    <div className="mobile-action-icon">
+                      {theme === 'dark' ? <FiSun /> : <FiMoon />}
+                    </div>
+                    <div className="mobile-action-text">
+                      <strong>Theme Mode</strong>
+                      <small>{theme === 'dark' ? 'Currently Dark' : 'Currently Light'}</small>
+                    </div>
+                    <span className="mobile-action-tag">Toggle</span>
+                  </button>
+                </div>
+
+                <div className="mobile-drawer-cta">
+                  <a
+                    href="#contact"
+                    className="primary-button mobile-hire-btn"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Start a Project <Arrow />
+                  </a>
+                </div>
+              </div>
+
+              <div className="mobile-drawer-footer">
+                <div className="mobile-drawer-clock">
+                  <LiveClock />
+                </div>
+                <div className="mobile-drawer-socials">
+                  <a href="https://github.com/kal400" target="_blank" rel="noreferrer" aria-label="GitHub">
+                    <FiGithub />
+                  </a>
+                  <a href="https://linkedin.com" target="_blank" rel="noreferrer" aria-label="LinkedIn">
+                    <FiLinkedin />
+                  </a>
+                  <a href="mailto:kaleabawoe@gmail.com" aria-label="Email">
+                    <FiMail />
+                  </a>
+                </div>
+              </div>
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
 
       <main>
         {/* ── HERO ──────────────────────────────────────────── */}
