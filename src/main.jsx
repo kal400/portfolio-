@@ -585,7 +585,10 @@ function PublicSite() {
     fetchPublicContent().then(remote => {
       if (!remote) return;
       setContent({ projects: remote.projects, skills: remote.skills });
-      if (remote.photo) setPhoto(remote.photo);
+      if (remote.photo) {
+        setPhoto(remote.photo);
+        try { localStorage.setItem(PHOTO_KEY, remote.photo); } catch {}
+      }
     }).catch(() => {});
   }, []);
 
