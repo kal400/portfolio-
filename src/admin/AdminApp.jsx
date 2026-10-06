@@ -8,7 +8,8 @@ import {
 } from 'react-icons/fi';
 import {
   createProject, createSimpleRecord, fetchAdminContent,
-  markMessageRead, removeRecord, supabase, updateRecord, uploadProfilePhoto
+  markMessageRead, removeRecord, saveExperienceList, saveProjectsList,
+  saveSkillsList, supabase, updateRecord, uploadProfilePhoto
 } from '../backend';
 import {
   CONTENT_KEY, PHOTO_KEY, defaultPhoto, getStoredPhoto, projects,
@@ -26,39 +27,15 @@ const adminNav = [
 
 function Arrow() { return <FiArrowUpRight className="arrow-icon" aria-hidden="true" />; }
 
-/* ── Admin Login Screen ──────────────────────────────────────── */
 /* ── Admin Login Screen (Single User Database / Master Key) ──── */
 function AdminLogin({ onLogin }) {
-  const [email,    setEmail]    = useState(() => import.meta.env.VITE_ADMIN_EMAIL || 'kaleabawoe@gmail.com');
-  const [password, setPassword] = useState('');
-  const [error,    setError]    = useState('');
-  const [loading,  setLoading]  = useState(false);
-  const [dbStatus, setDbStatus] = useState('checking'); // 'ready' | 'fallback'
-
-  useEffect(() => {
-    let isMounted = true;
-    async function checkDb() {
-      if (!supabase) {
-        if (isMounted) setDbStatus('fallback');
-        return;
-      }
-      try {
-        const { data, error: qErr } = await supabase.from('admin_auth').select('id, email').limit(1);
-        if (isMounted) {
-          if (!qErr && data && data.length > 0) {
-            setDbStatus('ready');
-            if (data[0].email) setEmail(data[0].email);
-          } else {
-            setDbStatus('fallback');
-          }
-        }
-      } catch {
-        if (isMounted) setDbStatus('fallback');
-      }
-    }
-    checkDb();
-    return () => { isMounted = false; };
-  }, []);
+  const [email,        setEmail]        = useState(() => import.meta.env.VITE_ADMIN_EMAIL || 'kaleabawoe@gmail.com');
+  const [password,     setPassword]     = useState('');
+  const [error,        setError]        = useState('');
+  const [loading,      setLoading]      = useState(false);
+  const [showReset,    setShowReset]    = useState(false);
+  const [newPass,      setNewPass]      = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -71,36 +48,53 @@ function AdminLogin({ onLogin }) {
     const inputPass  = password.trim();
 
     let authenticated = false;
-    let authUser = { email: inputEmail, role: 'Lead Architect', source: 'local' };
+    let authUser = { email: inputEmail || envEmail, role: 'Lead Architect', source: 'database' };
 
-    // 1. Try checking against Supabase 'admin_auth' table directly
+    // 1. Try checking against Supabase 'site_settings' (RLS disabled, always works!)
     if (supabase) {
       try {
-        const { data, error: dbError } = await supabase.from('admin_auth').select('*').limit(1);
-        if (!dbError && data && data.length > 0) {
-          const row = data[0];
-          const dbEmail = (row.email || '').trim().toLowerCase();
-          const emailMatch = !dbEmail || dbEmail === inputEmail;
-          const passMatch  = (row.password === inputPass) || (row.password_hash === inputPass);
-
-          if (emailMatch && passMatch) {
-            authenticated = true;
-            authUser = { email: row.email || email, role: 'Lead Architect', source: 'database' };
+        const { data: ssData } = await supabase.from('site_settings').select('*').in('key', ['admin_password', 'admin_auth_config']);
+        if (ssData && ssData.length > 0) {
+          for (const item of ssData) {
+            if (item.key === 'admin_password') {
+              const dbPass = (item.value || '').trim();
+              if (dbPass && dbPass === inputPass) {
+                authenticated = true;
+              }
+            }
+            if (item.key === 'admin_auth_config') {
+              try {
+                const conf = typeof item.value === 'string' ? JSON.parse(item.value) : item.value;
+                if (conf && conf.password && conf.password.trim() === inputPass) {
+                  authenticated = true;
+                }
+              } catch {}
+            }
           }
         }
-      } catch (err) {
-        // Table query error, fallback to env check below
-      }
+      } catch (err) {}
     }
 
-    // 2. Check against environment variable fallback
-    if (!authenticated) {
-      const emailMatch = inputEmail === envEmail;
-      const passMatch  = inputPass === envPass;
+    // 2. Try checking against Supabase 'admin_auth' table directly
+    if (!authenticated && supabase) {
+      try {
+        const { data } = await supabase.from('admin_auth').select('*');
+        if (data && data.length > 0) {
+          for (const row of data) {
+            if (row.password === inputPass || row.password_hash === inputPass) {
+              authenticated = true;
+              break;
+            }
+          }
+        }
+      } catch (err) {}
+    }
 
-      if (emailMatch && passMatch) {
+    // 3. Fallback master password
+    if (!authenticated) {
+      if (inputPass === envPass || inputPass === 'kalab2026') {
         authenticated = true;
-        authUser = { email: envEmail, role: 'Lead Architect', source: 'env' };
+        authUser.source = 'env';
       }
     }
 
@@ -110,7 +104,31 @@ function AdminLogin({ onLogin }) {
       localStorage.setItem('kalab_admin_session', JSON.stringify({ ...authUser, timestamp: Date.now() }));
       onLogin(authUser);
     } else {
-      setError('Incorrect password. Please verify and try again.');
+      setError('Incorrect password. Default master password is "kalab2026", or click "Set Custom Password" below.');
+    }
+  };
+
+  const handleSaveNewPassword = async (e) => {
+    e.preventDefault();
+    if (!newPass.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      if (supabase) {
+        await supabase.from('site_settings').upsert({
+          key: 'admin_password',
+          value: newPass.trim()
+        });
+      }
+      setResetSuccess(`Password updated to "${newPass.trim()}". Logging you in…`);
+      const authUser = { email: email.trim() || 'kaleabawoe@gmail.com', role: 'Lead Architect', source: 'database' };
+      localStorage.setItem('kalab_admin_session', JSON.stringify({ ...authUser, timestamp: Date.now() }));
+      setTimeout(() => {
+        onLogin(authUser);
+      }, 600);
+    } catch (err) {
+      setError('Could not update password in database.');
+      setLoading(false);
     }
   };
 
@@ -121,46 +139,90 @@ function AdminLogin({ onLogin }) {
           <a className="reference-brand" href="/">
             <span>KA</span><strong>Kalab</strong>
           </a>
-          <span className="auth-badge">
-            {dbStatus === 'ready' ? 'SUPABASE DB AUTH' : 'SECURE MASTER ACCESS'}
-          </span>
+          <span className="auth-badge">SUPABASE SECURE ACCESS</span>
         </div>
 
         <p className="eyebrow">Executive Management Portal</p>
         <h1>Owner Sign In</h1>
         <p>Private command center for Kalab Awoke. Enter your password to manage your projects, skills, and portfolio telemetry.</p>
 
-        <form onSubmit={handleSubmit} style={{ marginTop: '24px' }}>
-          <label>
-            Administrator Email
-            <input
-              required
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-            />
-          </label>
-          <label>
-            Master Password
-            <input
-              required
-              type="password"
-              placeholder="••••••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoFocus
-            />
-          </label>
+        {!showReset ? (
+          <form onSubmit={handleSubmit} style={{ marginTop: '24px' }}>
+            <label>
+              Administrator Email
+              <input
+                required
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+              />
+            </label>
+            <label>
+              Master Password
+              <input
+                required
+                type="password"
+                placeholder="Default: kalab2026"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                autoFocus
+              />
+            </label>
 
-          <button className="primary-button auth-submit-btn" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
-            {loading ? 'Authenticating…' : 'Sign in to Console'} <Arrow />
-          </button>
+            <button className="primary-button auth-submit-btn" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
+              {loading ? 'Authenticating…' : 'Sign in to Console'} <Arrow />
+            </button>
 
-          {error && <div className="auth-error-chip">{error}</div>}
-        </form>
+            {error && <div className="auth-error-chip">{error}</div>}
+
+            <div style={{ marginTop: '16px', textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={() => { setShowReset(true); setError(''); }}
+                style={{ background: 'none', border: 'none', color: 'var(--cyan)', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}
+              >
+                Change or set custom password →
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleSaveNewPassword} style={{ marginTop: '24px' }}>
+            <div style={{ padding: '12px', background: 'var(--surface2)', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', color: 'var(--text2)' }}>
+              Choose any password you want. It will immediately save to your Supabase database and log you in.
+            </div>
+            <label>
+              New Master Password
+              <input
+                required
+                type="text"
+                placeholder="Enter your new password"
+                value={newPass}
+                onChange={e => setNewPass(e.target.value)}
+                autoFocus
+              />
+            </label>
+
+            <button className="primary-button auth-submit-btn" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
+              {loading ? 'Saving to Database…' : 'Save Password & Sign In'} <Arrow />
+            </button>
+
+            {resetSuccess && <div style={{ color: '#00e676', fontSize: '13px', marginTop: '10px' }}>{resetSuccess}</div>}
+            {error && <div className="auth-error-chip">{error}</div>}
+
+            <div style={{ marginTop: '16px', textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={() => { setShowReset(false); setError(''); }}
+                style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: '13px' }}
+              >
+                ← Back to standard login
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="auth-footer-nav" style={{ marginTop: '28px' }}>
-          <a href="/">← Return to Public Portfolio</a>
+          <a href="https://kalab-portfolio.vercel.app" target="_blank" rel="noreferrer">← View Live Portfolio</a>
         </div>
       </motion.div>
     </motion.div>
@@ -206,15 +268,22 @@ function AdminDashboard({ user, onLogout }) {
     if (!supabase) return;
     fetchAdminContent().then(remote => {
       if (!remote) return;
-      if (remote.projects.length) {
+      if (remote.projects && remote.projects.length) {
         setProjectList(remote.projects.map(p => ({
           ...p,
-          tags: p.tech_stack || [],
+          tags: p.tags || p.tech_stack || [],
           tone: p.tone || 'blue'
         })));
       }
-      if (remote.experience.length) setExperienceList(remote.experience);
-      setMessageList(remote.messages);
+      if (remote.skills && remote.skills.length) {
+        setSkillList(remote.skills);
+      }
+      if (remote.experience && remote.experience.length) {
+        setExperienceList(remote.experience);
+      }
+      if (remote.messages) {
+        setMessageList(remote.messages);
+      }
     }).catch(() => {});
   }, []);
 
@@ -225,59 +294,16 @@ function AdminDashboard({ user, onLogout }) {
 
     if (isExisting) {
       updated = projectList.map(p => (p.id === item.id || p.title.toLowerCase() === item.title.toLowerCase()) ? item : p);
-      if (supabase) {
-        try {
-          if (typeof item.id === 'number' || /^\d+$/.test(String(item.id))) {
-            await updateRecord('projects', item.id, {
-              title: item.title,
-              category: item.category,
-              description: item.description,
-              tech_stack: item.tags || [],
-              featured: Boolean(item.featured),
-              published: true,
-              tone: item.tone,
-              url: item.url,
-              metric: item.metric
-            });
-          } else {
-            const { data: existingDb } = await supabase.from('projects').select('id').eq('title', item.title).limit(1);
-            if (existingDb && existingDb.length > 0) {
-              await updateRecord('projects', existingDb[0].id, {
-                title: item.title,
-                category: item.category,
-                description: item.description,
-                tech_stack: item.tags || [],
-                featured: Boolean(item.featured),
-                published: true,
-                tone: item.tone,
-                url: item.url,
-                metric: item.metric
-              });
-            } else {
-              const { data: created } = await createProject(item);
-              if (created?.id) item.id = created.id;
-            }
-          }
-        } catch (e) {
-          console.error('Supabase project sync error:', e);
-        }
-      }
       showToast(`Updated "${item.title}".`);
     } else {
-      const newObj = { ...item };
-      if (supabase) {
-        try {
-          const { data: created } = await createProject(newObj);
-          if (created?.id) newObj.id = created.id;
-        } catch (e) {
-          console.error('Supabase project create error:', e);
-        }
-      }
-      updated = [newObj, ...projectList];
+      updated = [item, ...projectList];
       showToast(`Created "${item.title}".`);
     }
     setProjectList(updated);
     persist(updated, skillList, experienceList);
+    if (supabase) {
+      await saveProjectsList(updated);
+    }
     setProjectModal(null);
   };
 
@@ -285,17 +311,14 @@ function AdminDashboard({ user, onLogout }) {
     const item = projectList[index];
     if (!window.confirm(`Delete "${item.title}"?`)) return;
     const updated = projectList.filter((_, i) => i !== index);
-    if (supabase && item.id) {
-      try {
-        if (typeof item.id === 'number' || /^\d+$/.test(String(item.id))) {
-          await removeRecord('projects', item.id);
-        } else {
-          await supabase.from('projects').delete().eq('title', item.title);
-        }
-      } catch (e) {}
-    }
     setProjectList(updated);
     persist(updated, skillList, experienceList);
+    if (supabase) {
+      if (item.id && typeof item.id === 'number') {
+        await removeRecord('projects', item.id);
+      }
+      await saveProjectsList(updated);
+    }
     showToast(`Deleted "${item.title}".`);
   };
 
@@ -305,41 +328,28 @@ function AdminDashboard({ user, onLogout }) {
     const existingIndex = skillList.findIndex(s => s.name.toLowerCase() === item.name.toLowerCase());
     if (existingIndex >= 0 && skillModal !== 'new') {
       updated = skillList.map((s, i) => i === existingIndex ? item : s);
-      if (supabase) {
-        try {
-          const { data: existingDb } = await supabase.from('skills').select('id').eq('name', item.name).limit(1);
-          if (existingDb && existingDb.length > 0) {
-            await updateRecord('skills', existingDb[0].id, { category: item.category });
-          } else {
-            await createSimpleRecord('skills', { name: item.name, category: item.category, sort_order: existingIndex });
-          }
-        } catch (e) {}
-      }
       showToast(`Updated skill "${item.name}".`);
     } else {
       updated = [...skillList, item];
-      if (supabase) {
-        try {
-          await createSimpleRecord('skills', { name: item.name, category: item.category, sort_order: skillList.length });
-        } catch (e) {}
-      }
       showToast(`Added skill "${item.name}".`);
     }
     setSkillList(updated);
     persist(projectList, updated, experienceList);
+    if (supabase) {
+      await saveSkillsList(updated);
+    }
     setSkillModal(null);
   };
 
   const handleDeleteSkill = async (index) => {
     const item = skillList[index];
     const updated = skillList.filter((_, i) => i !== index);
-    if (supabase) {
-      try {
-        await supabase.from('skills').delete().eq('name', item.name);
-      } catch (e) {}
-    }
     setSkillList(updated);
     persist(projectList, updated, experienceList);
+    if (supabase) {
+      await supabase.from('skills').delete().eq('name', item.name);
+      await saveSkillsList(updated);
+    }
     showToast(`Removed "${item.name}".`);
   };
 
@@ -348,44 +358,32 @@ function AdminDashboard({ user, onLogout }) {
     let updated;
     if (experienceModal && typeof experienceModal === 'object' && experienceModal._index !== undefined) {
       updated = experienceList.map((e, i) => i === experienceModal._index ? item : e);
-      if (supabase) {
-        try {
-          const { data: existingDb } = await supabase.from('experience').select('id').eq('role', item.role).limit(1);
-          if (existingDb && existingDb.length > 0) {
-            await updateRecord('experience', existingDb[0].id, {
-              company: item.company,
-              date_range: item.period,
-              description: item.description
-            });
-          }
-        } catch (e) {}
-      }
       showToast(`Updated "${item.role}".`);
     } else {
       updated = [item, ...experienceList];
-      if (supabase) {
-        try {
-          await createSimpleRecord('experience', {
-            role: item.role,
-            company: item.company,
-            date_range: item.period,
-            description: item.description
-          });
-        } catch (e) {}
-      }
       showToast(`Added "${item.role}".`);
     }
     setExperienceList(updated);
     persist(projectList, skillList, updated);
+    if (supabase) {
+      await saveExperienceList(updated);
+    }
     setExperienceModal(null);
   };
 
-  const handleDeleteExperience = (index) => {
+  const handleDeleteExperience = async (index) => {
     const item = experienceList[index];
+    if (!window.confirm(`Delete "${item.role}"?`)) return;
     const updated = experienceList.filter((_, i) => i !== index);
     setExperienceList(updated);
     persist(projectList, skillList, updated);
-    showToast(`Removed experience entry.`);
+    if (supabase) {
+      if (item.id && typeof item.id === 'number') {
+        await removeRecord('experience', item.id);
+      }
+      await saveExperienceList(updated);
+    }
+    showToast('Removed experience entry.');
   };
 
   // Backup Export

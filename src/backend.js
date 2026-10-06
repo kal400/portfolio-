@@ -6,30 +6,174 @@ export const supabase = url && key ? createClient(url, key) : null;
 
 export async function fetchPublicContent() {
   if (!supabase) return null;
-  const [{ data: projects }, { data: skills }, { data: experience }, { data: settings }] = await Promise.all([
-    supabase.from('projects').select('*').eq('published', true).order('sort_order'),
-    supabase.from('skills').select('*').order('sort_order'),
-    supabase.from('experience').select('*').order('sort_order'),
-    supabase.from('site_settings').select('key,value').in('key', ['profile_photo_url'])
-  ]);
-  return { projects: (projects || []).map((item) => ({ ...item, tags: item.tech_stack || [] })), skills: (skills || []).map((item) => item.name), experience: experience || [], photo: settings?.find((item) => item.key === 'profile_photo_url')?.value || null };
+  try {
+    const [{ data: projects }, { data: skills }, { data: experience }, { data: settings }] = await Promise.all([
+      supabase.from('projects').select('*').eq('published', true).order('sort_order'),
+      supabase.from('skills').select('*').order('sort_order'),
+      supabase.from('experience').select('*').order('sort_order'),
+      supabase.from('site_settings').select('key,value')
+    ]);
+
+    const settingsMap = {};
+    (settings || []).forEach(s => { settingsMap[s.key] = s.value; });
+
+    let fullProjects = null;
+    if (settingsMap['projects_list']) {
+      try { fullProjects = JSON.parse(settingsMap['projects_list']); } catch {}
+    }
+
+    let fullSkills = null;
+    if (settingsMap['skills_list']) {
+      try { fullSkills = JSON.parse(settingsMap['skills_list']); } catch {}
+    }
+
+    let fullExp = null;
+    if (settingsMap['experience_list']) {
+      try { fullExp = JSON.parse(settingsMap['experience_list']); } catch {}
+    }
+
+    return {
+      projects: fullProjects || (projects || []).map((item) => ({ ...item, tags: item.tech_stack || [] })),
+      skills: fullSkills || skills || [],
+      experience: fullExp || (experience || []).map(e => ({ ...e, period: e.date_range })),
+      photo: settingsMap['profile_photo_url'] || null
+    };
+  } catch (err) {
+    console.error('fetchPublicContent error:', err);
+    return null;
+  }
 }
 
 export async function fetchAdminContent() {
   if (!supabase) return null;
-  const [{ data: projects }, { data: skills }, { data: experience }, { data: messages }, { data: settings }] = await Promise.all([
-    supabase.from('projects').select('*').order('sort_order'),
-    supabase.from('skills').select('*').order('sort_order'),
-    supabase.from('experience').select('*').order('sort_order'),
-    supabase.from('messages').select('*').order('created_at', { ascending: false }),
-    supabase.from('site_settings').select('key,value').in('key', ['profile_photo_url'])
-  ]);
-  return { projects: projects || [], skills: skills || [], experience: experience || [], messages: messages || [], photo: settings?.find((item) => item.key === 'profile_photo_url')?.value || null };
+  try {
+    const [{ data: projects }, { data: skills }, { data: experience }, { data: messages }, { data: settings }] = await Promise.all([
+      supabase.from('projects').select('*').order('sort_order'),
+      supabase.from('skills').select('*').order('sort_order'),
+      supabase.from('experience').select('*').order('sort_order'),
+      supabase.from('messages').select('*').order('created_at', { ascending: false }),
+      supabase.from('site_settings').select('key,value')
+    ]);
+
+    const settingsMap = {};
+    (settings || []).forEach(s => { settingsMap[s.key] = s.value; });
+
+    let fullProjects = null;
+    if (settingsMap['projects_list']) {
+      try { fullProjects = JSON.parse(settingsMap['projects_list']); } catch {}
+    }
+
+    let fullSkills = null;
+    if (settingsMap['skills_list']) {
+      try { fullSkills = JSON.parse(settingsMap['skills_list']); } catch {}
+    }
+
+    let fullExp = null;
+    if (settingsMap['experience_list']) {
+      try { fullExp = JSON.parse(settingsMap['experience_list']); } catch {}
+    }
+
+    return {
+      projects: fullProjects || (projects || []).map((item) => ({ ...item, tags: item.tech_stack || [] })),
+      skills: fullSkills || skills || [],
+      experience: fullExp || (experience || []).map(e => ({ ...e, period: e.date_range })),
+      messages: messages || [],
+      photo: settingsMap['profile_photo_url'] || null
+    };
+  } catch (err) {
+    console.error('fetchAdminContent error:', err);
+    return null;
+  }
+}
+
+export async function saveProjectsList(projects) {
+  if (!supabase) return;
+  try {
+    await supabase.from('site_settings').upsert({
+      key: 'projects_list',
+      value: JSON.stringify(projects)
+    });
+    for (let i = 0; i < projects.length; i++) {
+      const p = projects[i];
+      const dbRow = {
+        title: p.title,
+        category: p.category,
+        description: p.description,
+        tech_stack: p.tags || p.tech_stack || [],
+        image_url: p.image_url || null,
+        live_url: p.liveUrl || p.live_url || null,
+        repo_url: p.githubUrl || p.repo_url || null,
+        featured: Boolean(p.featured),
+        published: p.published !== false,
+        sort_order: i + 1
+      };
+      if (typeof p.id === 'number') {
+        await supabase.from('projects').update(dbRow).eq('id', p.id);
+      } else {
+        const { data } = await supabase.from('projects').upsert(dbRow).select();
+        if (data?.[0]?.id) p.id = data[0].id;
+      }
+    }
+  } catch (err) {
+    console.error('saveProjectsList error:', err);
+  }
+}
+
+export async function saveSkillsList(skills) {
+  if (!supabase) return;
+  try {
+    await supabase.from('site_settings').upsert({
+      key: 'skills_list',
+      value: JSON.stringify(skills)
+    });
+    for (let i = 0; i < skills.length; i++) {
+      const s = skills[i];
+      await supabase.from('skills').upsert({
+        name: s.name,
+        category: s.category,
+        sort_order: i + 1
+      }, { onConflict: 'name' }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('saveSkillsList error:', err);
+  }
+}
+
+export async function saveExperienceList(experience) {
+  if (!supabase) return;
+  try {
+    await supabase.from('site_settings').upsert({
+      key: 'experience_list',
+      value: JSON.stringify(experience)
+    });
+    for (let i = 0; i < experience.length; i++) {
+      const exp = experience[i];
+      await supabase.from('experience').upsert({
+        role: exp.role,
+        company: exp.company,
+        date_range: exp.period || exp.date_range || 'Present',
+        description: exp.description || '',
+        sort_order: i + 1
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('saveExperienceList error:', err);
+  }
 }
 
 export async function createProject(project) {
   if (!supabase) return { data: null, error: null };
-  return supabase.from('projects').insert({ title: project.title, category: project.category, description: project.description, tech_stack: project.tags || [], image_url: project.image_url || null, live_url: project.live_url || null, repo_url: project.repo_url || null, featured: Boolean(project.featured), published: project.published !== false }).select().single();
+  return supabase.from('projects').insert({
+    title: project.title,
+    category: project.category,
+    description: project.description,
+    tech_stack: project.tags || [],
+    image_url: project.image_url || null,
+    live_url: project.live_url || null,
+    repo_url: project.repo_url || null,
+    featured: Boolean(project.featured),
+    published: project.published !== false
+  }).select().single();
 }
 
 export async function removeRecord(table, id) {
@@ -51,7 +195,6 @@ export async function uploadProfilePhoto(file, base64Fallback = null) {
   if (!supabase) return { url: base64Fallback, error: null };
   let photoUrl = null;
 
-  // 1. Try uploading to storage bucket if available
   try {
     const extension = file?.name?.split('.').pop()?.toLowerCase() || 'jpg';
     const path = `profile/hero-${Date.now()}.${extension}`;
@@ -60,11 +203,8 @@ export async function uploadProfilePhoto(file, base64Fallback = null) {
       const { data } = supabase.storage.from('portfolio-assets').getPublicUrl(path);
       photoUrl = data?.publicUrl;
     }
-  } catch (err) {
-    // Storage bucket unavailable, proceed to database fallback
-  }
+  } catch (err) {}
 
-  // 2. Direct database persistence via site_settings
   if (!photoUrl && base64Fallback) {
     photoUrl = base64Fallback;
   }

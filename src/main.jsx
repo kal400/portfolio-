@@ -310,13 +310,14 @@ function ProjectBrowserMockup({ project }) {
 }
 
 /* ── Interactive Skills Matrix ──────────────────────────────── */
-function SkillsMatrix() {
+function SkillsMatrix({ skills = skillsData }) {
   const [activeTab, setActiveTab] = useState('All');
   const categories = ['All', 'Frontend', 'Backend', 'Systems'];
+  const list = (skills && skills.length > 0) ? skills : skillsData;
 
   const filtered = activeTab === 'All'
-    ? skillsData
-    : skillsData.filter(s => s.category === activeTab);
+    ? list
+    : list.filter(s => s.category === activeTab);
 
   return (
     <div className="skills-matrix">
@@ -329,7 +330,7 @@ function SkillsMatrix() {
           >
             {tab}
             <span className="skills-tab-count">
-              {tab === 'All' ? skillsData.length : skillsData.filter(s => s.category === tab).length}
+              {tab === 'All' ? list.length : list.filter(s => s.category === tab).length}
             </span>
           </button>
         ))}
@@ -349,9 +350,9 @@ function SkillsMatrix() {
             >
               <div className="skill-card-top">
                 <strong>{skill.name}</strong>
-                <span className="skill-level">{skill.level}</span>
+                {skill.level && <span className="skill-level">{skill.level}</span>}
               </div>
-              <p className="skill-desc">{skill.desc}</p>
+              {skill.desc && <p className="skill-desc">{skill.desc}</p>}
             </motion.div>
           ))}
         </AnimatePresence>
@@ -579,6 +580,7 @@ function PublicSite() {
   const [toast,           setToast]           = useState('');
 
   const visibleProjects = content.projects?.length ? content.projects : projects;
+  const visibleSkills = content.skills?.length ? content.skills : skillsData;
 
   useEffect(() => {
     if (!supabase) return;
@@ -589,6 +591,12 @@ function PublicSite() {
         setPhoto(remote.photo);
         try { localStorage.setItem(PHOTO_KEY, remote.photo); } catch {}
       }
+      try {
+        localStorage.setItem(CONTENT_KEY, JSON.stringify({
+          projects: remote.projects,
+          skills: remote.skills
+        }));
+      } catch {}
     }).catch(() => {});
   }, []);
 
@@ -988,7 +996,7 @@ function PublicSite() {
                 <p>Categorized disciplines across frontend architecture, cloud data layers, and production engineering.</p>
               </div>
             </div>
-            <SkillsMatrix />
+            <SkillsMatrix skills={visibleSkills} />
           </div>
         </Section>
 
