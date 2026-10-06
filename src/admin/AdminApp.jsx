@@ -733,6 +733,12 @@ function AdminProjectsManager({ projects, onNew, onEdit, onDelete }) {
               </div>
             </div>
 
+            {proj.image_url && (
+              <div className="admin-project-thumb-preview">
+                <img src={proj.image_url} alt={proj.title} />
+              </div>
+            )}
+
             <div className="card-body">
               <span className="card-category">{proj.category}</span>
               <h3>{proj.title}</h3>
@@ -1007,13 +1013,46 @@ function ProjectEditorModal({ project, onClose, onSave }) {
     metric: project.metric || '',
     tone: project.tone || 'blue',
     description: project.description || '',
+    image_url: project.image_url || '',
     tags: (project.tags || []).join(', '),
     highlights: (project.highlights || []).join('\n'),
-    liveUrl: project.liveUrl || '',
-    githubUrl: project.githubUrl || '',
+    liveUrl: project.liveUrl || project.live_url || '',
+    githubUrl: project.githubUrl || project.repo_url || '',
   });
 
   const tones = ['blue', 'gold', 'violet', 'green', 'rose'];
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 1200;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.82);
+        setForm(prev => ({ ...prev, image_url: compressed }));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -1036,6 +1075,7 @@ function ProjectEditorModal({ project, onClose, onSave }) {
           onSave({
             ...project,
             ...form,
+            image_url: form.image_url || null,
             tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
             highlights: form.highlights.split('\n').map(h => h.trim()).filter(Boolean)
           });
@@ -1049,6 +1089,43 @@ function ProjectEditorModal({ project, onClose, onSave }) {
               Category
               <input required value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="e.g. Fintech Analytics & Operations" />
             </label>
+          </div>
+
+          {/* Project Screenshot / Photo Upload & Preview */}
+          <div className="project-image-editor-field">
+            <label className="field-title">Project Screenshot & Preview Image</label>
+            <div className="project-image-uploader-card">
+              {form.image_url ? (
+                <div className="project-image-preview-box">
+                  <img src={form.image_url} alt="Project Preview" className="project-preview-thumb" />
+                  <div className="project-image-overlay-actions">
+                    <button
+                      type="button"
+                      className="danger-btn-sm"
+                      onClick={() => setForm(prev => ({ ...prev, image_url: '' }))}
+                    >
+                      <FiTrash2 /> Remove Photo
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="project-image-dropzone">
+                  <FiImage className="dropzone-icon" />
+                  <strong>Upload Project Screenshot</strong>
+                  <span>JPG, PNG, WebP · High-res preview</span>
+                  <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+                </label>
+              )}
+              <div className="project-image-url-input-wrap">
+                <span className="or-text">Or paste direct image URL:</span>
+                <input
+                  type="url"
+                  placeholder="https://images.unsplash.com/... or https://..."
+                  value={form.image_url && !form.image_url.startsWith('data:image') ? form.image_url : ''}
+                  onChange={e => setForm({ ...form, image_url: e.target.value })}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="form-three-col">

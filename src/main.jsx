@@ -182,7 +182,8 @@ function ExecutivePortrait({ src }) {
 
 /* ── Interactive Browser Mockup for Projects ─────────────────── */
 function ProjectBrowserMockup({ project }) {
-  const { title, tone, url } = project;
+  if (!project) return null;
+  const { title = '', tone = 'blue', url = '', image_url } = project;
 
   return (
     <div className={`mockup-window tone-${tone || 'blue'}`}>
@@ -194,7 +195,7 @@ function ProjectBrowserMockup({ project }) {
         </div>
         <div className="mockup-url-bar">
           <span className="url-lock">🔒</span>
-          <span className="url-text">{url || `${title.toLowerCase().replace(/\s+/g, '')}.app`}</span>
+          <span className="url-text">{url || `${title.toLowerCase().replace(/[^a-z0-9]/g, '')}.app`}</span>
         </div>
         <div className="mockup-header-action">
           <FiArrowUpRight />
@@ -202,104 +203,131 @@ function ProjectBrowserMockup({ project }) {
       </div>
 
       <div className="mockup-viewport">
-        {title === 'Nova Finance' && (
-          <div className="ui-nova">
-            <div className="nova-top">
-              <div>
-                <span className="ui-label">Total Portfolio</span>
-                <strong className="ui-num">$128,450.00</strong>
-              </div>
-              <span className="ui-chip positive">+18.4%</span>
-            </div>
-            <div className="nova-chart">
-              <svg viewBox="0 0 240 55" className="chart-svg">
-                <defs>
-                  <linearGradient id="grad-blue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#00d4ff" stopOpacity="0.45" />
-                    <stop offset="100%" stopColor="#00d4ff" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-                <path d="M0,42 Q40,48 70,28 T140,22 T200,8 T240,12 L240,55 L0,55 Z" fill="url(#grad-blue)" />
-                <path d="M0,42 Q40,48 70,28 T140,22 T200,8 T240,12" fill="none" stroke="#00d4ff" strokeWidth="2.2" />
-              </svg>
-            </div>
-            <div className="nova-grid">
-              <div className="nova-card"><span>Yield</span><strong>8.2% APY</strong></div>
-              <div className="nova-card"><span>Volume</span><strong>$42.8k</strong></div>
+        {image_url ? (
+          <div className="mockup-photo-wrapper">
+            <img
+              src={image_url}
+              alt={`${title} Preview`}
+              className="mockup-project-image"
+              loading="lazy"
+            />
+            <div className="mockup-photo-vignette" />
+            <div className="mockup-floating-status">
+              <span className="status-live-dot" />
+              <span>LIVE SYSTEM</span>
             </div>
           </div>
-        )}
-
-        {title === 'Form Studio' && (
-          <div className="ui-form">
-            <div className="form-header">
-              <span className="form-brand">FORM // 01</span>
-              <span className="form-tag">INDEX 2025</span>
-            </div>
-            <div className="form-canvas">
-              <div className="canvas-block block-lg">
-                <span className="block-title">SPATIAL IDENTITY</span>
-                <span className="block-sub">Architecture & Systems</span>
-              </div>
-              <div className="canvas-row">
-                <div className="canvas-block block-sm" />
-                <div className="canvas-block block-sm" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {title === 'Field Notes' && (
-          <div className="ui-notes">
-            <div className="notes-meta">
-              <span className="notes-tag">ESSAY #42</span>
-              <span>4 MIN READ</span>
-            </div>
-            <h4 className="notes-title">Architecture of Calm Systems</h4>
-            <div className="notes-lines">
-              <div className="notes-line w-full" />
-              <div className="notes-line w-90" />
-              <div className="notes-line w-75" />
-            </div>
-            <div className="notes-stats">
-              <span>TypeScript</span> · <span>Local-First</span>
-            </div>
-          </div>
-        )}
-
-        {title === 'Ops Board' && (
-          <div className="ui-ops">
-            <div className="ops-header">
-              <span className="ops-sprint">Sprint 34</span>
-              <span className="ops-badge">84% velocity</span>
-            </div>
-            <div className="ops-cols">
-              <div className="ops-col">
-                <div className="ops-col-title">In Review (3)</div>
-                <div className="ops-item active">Auth token refresh logic</div>
-                <div className="ops-item">Edge latency bench</div>
-              </div>
-              <div className="ops-col">
-                <div className="ops-col-title">Done (12)</div>
-                <div className="ops-item done">PostgreSQL migration</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {title === 'Market Home' && (
-          <div className="ui-market">
-            <div className="market-preview">
-              <div className="market-img-skeleton" />
-              <div className="market-details">
-                <div className="market-title">Nordic Minimalist Lamp</div>
-                <div className="market-price-row">
-                  <span className="market-price">$340.00</span>
-                  <span className="market-stock">In Stock</span>
+        ) : (
+          <div className="mockup-generated-preview">
+            {title === 'Nova Finance' && (
+              <div className="ui-nova">
+                <div className="nova-top">
+                  <div>
+                    <span className="ui-label">Total Portfolio</span>
+                    <strong className="ui-num">$128,450.00</strong>
+                  </div>
+                  <span className="ui-chip positive">+18.4%</span>
                 </div>
-                <div className="market-btn">Instant Checkout ⚡</div>
+                <div className="nova-chart">
+                  <svg viewBox="0 0 240 55" className="chart-svg">
+                    <defs>
+                      <linearGradient id="grad-blue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#00d4ff" stopOpacity="0.45" />
+                        <stop offset="100%" stopColor="#00d4ff" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M0,42 Q40,48 70,28 T140,22 T200,8 T240,12 L240,55 L0,55 Z" fill="url(#grad-blue)" />
+                    <path d="M0,42 Q40,48 70,28 T140,22 T200,8 T240,12" fill="none" stroke="#00d4ff" strokeWidth="2.2" />
+                  </svg>
+                </div>
+                <div className="nova-grid">
+                  <div className="nova-card"><span>Yield</span><strong>8.2% APY</strong></div>
+                  <div className="nova-card"><span>Volume</span><strong>$42.8k</strong></div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {title === 'Form Studio' && (
+              <div className="ui-form">
+                <div className="form-header">
+                  <span className="form-brand">FORM // 01</span>
+                  <span className="form-tag">INDEX 2025</span>
+                </div>
+                <div className="form-canvas">
+                  <div className="canvas-block block-lg">
+                    <span className="block-title">SPATIAL IDENTITY</span>
+                    <span className="block-sub">Architecture & Systems</span>
+                  </div>
+                  <div className="canvas-row">
+                    <div className="canvas-block block-sm" />
+                    <div className="canvas-block block-sm" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {title === 'Field Notes' && (
+              <div className="ui-notes">
+                <div className="notes-meta">
+                  <span className="notes-tag">ESSAY #42</span>
+                  <span>4 MIN READ</span>
+                </div>
+                <h4 className="notes-title">Architecture of Calm Systems</h4>
+                <div className="notes-lines">
+                  <div className="notes-line w-full" />
+                  <div className="notes-line w-90" />
+                  <div className="notes-line w-75" />
+                </div>
+                <div className="notes-stats">
+                  <span>TypeScript</span> · <span>Local-First</span>
+                </div>
+              </div>
+            )}
+
+            {title === 'Ops Board' && (
+              <div className="ui-ops">
+                <div className="ops-header">
+                  <span className="ops-sprint">Sprint 34</span>
+                  <span className="ops-badge">84% velocity</span>
+                </div>
+                <div className="ops-cols">
+                  <div className="ops-col">
+                    <div className="ops-col-title">In Review (3)</div>
+                    <div className="ops-item active">Auth token refresh logic</div>
+                    <div className="ops-item">Edge latency bench</div>
+                  </div>
+                  <div className="ops-col">
+                    <div className="ops-col-title">Done (12)</div>
+                    <div className="ops-item done">PostgreSQL migration</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {title === 'Market Home' && (
+              <div className="ui-market">
+                <div className="market-preview">
+                  <div className="market-img-skeleton" />
+                  <div className="market-details">
+                    <div className="market-title">Nordic Minimalist Lamp</div>
+                    <div className="market-price-row">
+                      <span className="market-price">$340.00</span>
+                      <span className="market-stock">In Stock</span>
+                    </div>
+                    <div className="market-btn">Instant Checkout ⚡</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!['Nova Finance', 'Form Studio', 'Field Notes', 'Ops Board', 'Market Home'].includes(title) && (
+              <div className="ui-generic-preview">
+                <div className="generic-preview-icon"><FiCode /></div>
+                <strong className="generic-preview-title">{title}</strong>
+                <span className="generic-preview-desc">{project.category}</span>
+                <span className="generic-preview-metric">{project.metric || 'Engineered with React & Cloud'}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -589,9 +617,15 @@ function PublicSite() {
   const [cmdOpen,         setCmdOpen]         = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [toast,           setToast]           = useState('');
+  const [projectFilter,   setProjectFilter]   = useState('All');
 
   const visibleProjects = (content.projects && content.projects.length) ? content.projects : projects;
   const visibleSkills = (content.skills && content.skills.length) ? content.skills : skillsData;
+
+  const projectCategories = ['All', ...new Set(visibleProjects.map(p => p.category).filter(Boolean))];
+  const filteredProjects = projectFilter === 'All'
+    ? visibleProjects
+    : visibleProjects.filter(p => p.category === projectFilter);
 
   useEffect(() => {
     if (!supabase) return;
@@ -1023,38 +1057,90 @@ function PublicSite() {
             <span className="portfolio-hint">Click any project to inspect case study</span>
           </div>
 
-          <motion.div className="portfolio-grid" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.15 }}>
-            {visibleProjects.map((project, index) => (
-              <motion.article
-                variants={reveal}
-                whileHover={{ y: -6 }}
-                className="portfolio-card clickable-card"
-                key={project.title}
-                onClick={() => setSelectedProject(project)}
-              >
-                <div className="project-mockup-frame">
-                  <ProjectBrowserMockup project={project} />
-                </div>
+          {projectCategories.length > 2 && (
+            <div className="portfolio-filter-tabs">
+              {projectCategories.map(cat => (
+                <button
+                  key={cat}
+                  className={`portfolio-filter-btn ${projectFilter === cat ? 'active' : ''}`}
+                  onClick={() => setProjectFilter(cat)}
+                >
+                  {cat}
+                  <span className="filter-count">
+                    {cat === 'All' ? visibleProjects.length : visibleProjects.filter(p => p.category === cat).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
 
-                <div className="project-details">
-                  <div>
-                    <div className="project-meta-row">
-                      <span className="project-category">{project.category}</span>
-                      {project.metric && <span className="project-metric-pill">{project.metric}</span>}
+          <motion.div layout className="portfolio-grid" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.15 }}>
+            <AnimatePresence mode="popLayout">
+              {filteredProjects.map((project, index) => (
+                <motion.article
+                  layout
+                  variants={reveal}
+                  whileHover={{ y: -6 }}
+                  className={`portfolio-card clickable-card tone-card-${project.tone || 'blue'}`}
+                  key={project.id || project.title}
+                  onClick={() => setSelectedProject(project)}
+                >
+                  <div className="project-mockup-frame">
+                    <ProjectBrowserMockup project={project} />
+                  </div>
+
+                  <div className="project-details">
+                    <div>
+                      <div className="project-meta-row">
+                        <span className="project-category">{project.category}</span>
+                        {project.metric && (
+                          <span className="project-metric-pill">
+                            <span className="metric-pulse-dot" />
+                            {project.metric}
+                          </span>
+                        )}
+                      </div>
+                      <h3>{project.title}</h3>
+                      <p>{project.description}</p>
+                      <div className="tag-row">
+                        {(project.tags || project.tech_stack || []).map(tag => <span key={tag}>{tag}</span>)}
+                      </div>
                     </div>
-                    <h3>{project.title}</h3>
-                    <p>{project.description}</p>
-                    <div className="tag-row">
-                      {(project.tags || project.tech_stack || []).map(tag => <span key={tag}>{tag}</span>)}
+
+                    <div className="project-card-footer">
+                      <div className="inspect-cta">
+                        <span>Inspect Case Study</span>
+                        <Arrow />
+                      </div>
+                      <div className="project-direct-links" onClick={e => e.stopPropagation()}>
+                        {(project.liveUrl || project.live_url) && (
+                          <a
+                            href={project.liveUrl || project.live_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="direct-link-btn"
+                            title="Open live website"
+                          >
+                            <FiExternalLink />
+                          </a>
+                        )}
+                        {(project.githubUrl || project.repo_url) && (
+                          <a
+                            href={project.githubUrl || project.repo_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="direct-link-btn"
+                            title="View source code on GitHub"
+                          >
+                            <FiGithub />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="inspect-cta">
-                    <span>Inspect</span>
-                    <Arrow />
-                  </div>
-                </div>
-              </motion.article>
-            ))}
+                </motion.article>
+              ))}
+            </AnimatePresence>
           </motion.div>
         </Section>
 

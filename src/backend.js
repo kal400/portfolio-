@@ -22,6 +22,7 @@ function normalizeProject(p, idx) {
     published: p.published !== false,
     year: p.year || '2025',
     metric: p.metric || '',
+    image_url: p.image_url || p.image || null,
     url: p.url || p.live_url || p.liveUrl || '',
     liveUrl: p.liveUrl || p.live_url || 'https://github.com/kal400',
     githubUrl: p.githubUrl || p.repo_url || 'https://github.com/kal400',
