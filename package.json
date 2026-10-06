@@ -9,7 +9,9 @@
     "build": "vite build",
     "build:admin": "vite build --config vite.config.admin.js",
     "preview": "vite preview",
-    "preview:admin": "vite preview --config vite.config.admin.js"
+    "preview:admin": "vite preview --config vite.config.admin.js",
+    "deploy:portfolio": "vite build && vercel --prod --yes",
+    "deploy:admin": "vite build --config vite.config.admin.js && vercel dist-admin --prod --yes --project kalab-admin --scope kalabs-projects-975c37c9"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",

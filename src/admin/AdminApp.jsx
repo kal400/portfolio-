@@ -448,7 +448,7 @@ function AdminDashboard({ user, onLogout }) {
           <button className="sidebar-action-btn" onClick={exportBackupJSON} title="Download JSON copy of all data">
             <FiDownload /> Export JSON Backup
           </button>
-          <a className="sidebar-action-btn" href="/">
+          <a className="sidebar-action-btn" href="https://kalab-portfolio.vercel.app" target="_blank" rel="noreferrer">
             <FiExternalLink /> View Public Site
           </a>
           <button className="logout" onClick={onLogout}>

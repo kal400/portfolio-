@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
+import path from 'path';
 
 export default defineConfig({
   plugins: [
@@ -13,6 +15,13 @@ export default defineConfig({
           }
           next();
         });
+      },
+      closeBundle() {
+        const src = path.resolve('dist-admin/admin-app/index.html');
+        const dest = path.resolve('dist-admin/index.html');
+        if (fs.existsSync(src)) {
+          fs.copyFileSync(src, dest);
+        }
       }
     }
   ],
