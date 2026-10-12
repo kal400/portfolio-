@@ -3,14 +3,14 @@ import { createRoot } from 'react-dom/client';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   FiActivity, FiArrowUpRight, FiBriefcase, FiCheck, FiCheckCircle, FiChevronRight,
-  FiClock, FiCode, FiCopy, FiDownload, FiEdit3, FiExternalLink, FiEye, FiGithub, FiImage, FiLayout, FiLinkedin,
+  FiClock, FiCode, FiCopy, FiDownload, FiEdit3, FiExternalLink, FiEye, FiFileText, FiGithub, FiImage, FiLayout, FiLinkedin,
   FiLogOut, FiMail, FiMenu, FiMessageSquare, FiMoon, FiPlus, FiRefreshCw,
   FiSearch, FiSettings, FiSun, FiTrash2, FiTrendingUp, FiUploadCloud, FiX
 } from 'react-icons/fi';
 import { fetchPublicContent, supabase } from './backend';
 import {
-  CONTENT_KEY, PHOTO_KEY, defaultPhoto, getStoredPhoto, navItems,
-  process, projects, readStored, skills, skillsData
+  CONTENT_KEY, PHOTO_KEY, defaultCv, defaultPhoto, getStoredCv, getStoredPhoto, navItems,
+  process, projects, readStored, setStoredCv, skills, skillsData
 } from './data';
 import './styles.css';
 
@@ -478,7 +478,7 @@ function ProjectCaseStudyModal({ project, onClose }) {
 }
 
 /* ── Cmd + K Command Palette ─────────────────────────────────── */
-function CommandPalette({ open, onClose, onAction, onSelectProject }) {
+function CommandPalette({ open, onClose, onAction, onSelectProject, cv }) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
@@ -492,16 +492,17 @@ function CommandPalette({ open, onClose, onAction, onSelectProject }) {
   }, [open]);
 
   const allCommands = [
+    { id: 'download-cv', label: `Download Resume / CV (${cv?.filename || 'Kalab_Awoke_CV.docx'})`, group: 'Quick Actions', icon: FiFileText, action: () => onAction('download-cv') },
+    { id: 'copy-email', label: 'Copy Email Address (kaleabawoe@gmail.com)', group: 'Quick Actions', icon: FiCopy, action: () => onAction('copy-email') },
+    { id: 'toggle-theme', label: 'Toggle Light / Dark Theme', group: 'Quick Actions', icon: FiSun, action: () => onAction('toggle-theme') },
+    { id: 'github', label: 'Open GitHub Profile (@kal400)', group: 'Quick Actions', icon: FiGithub, action: () => window.open('https://github.com/kal400', '_blank') },
+    { id: 'linkedin', label: 'Open LinkedIn Profile', group: 'Quick Actions', icon: FiLinkedin, action: () => window.open('https://linkedin.com', '_blank') },
+
     { id: 'home', label: 'Go to Home', group: 'Navigation', icon: FiArrowUpRight, action: () => { window.location.hash = '#home'; onClose(); } },
     { id: 'about', label: 'Go to About Me', group: 'Navigation', icon: FiArrowUpRight, action: () => { window.location.hash = '#about'; onClose(); } },
     { id: 'portfolio', label: 'Go to Selected Work', group: 'Navigation', icon: FiBriefcase, action: () => { window.location.hash = '#portfolio'; onClose(); } },
     { id: 'skills', label: 'Go to Tech Stack & Matrix', group: 'Navigation', icon: FiCode, action: () => { window.location.hash = '#skills'; onClose(); } },
     { id: 'contact', label: 'Go to Contact', group: 'Navigation', icon: FiMail, action: () => { window.location.hash = '#contact'; onClose(); } },
-
-    { id: 'copy-email', label: 'Copy Email Address (kaleabawoe@gmail.com)', group: 'Quick Actions', icon: FiCopy, action: () => onAction('copy-email') },
-    { id: 'toggle-theme', label: 'Toggle Light / Dark Theme', group: 'Quick Actions', icon: FiSun, action: () => onAction('toggle-theme') },
-    { id: 'github', label: 'Open GitHub Profile (@kal400)', group: 'Quick Actions', icon: FiGithub, action: () => window.open('https://github.com/kal400', '_blank') },
-    { id: 'linkedin', label: 'Open LinkedIn Profile', group: 'Quick Actions', icon: FiLinkedin, action: () => window.open('https://linkedin.com', '_blank') },
 
     { id: 'proj-nova', label: 'Inspect Project: Nova Finance', group: 'Case Studies', icon: FiTrendingUp, action: () => onSelectProject('Nova Finance') },
     { id: 'proj-form', label: 'Inspect Project: Form Studio', group: 'Case Studies', icon: FiLayout, action: () => onSelectProject('Form Studio') },
@@ -604,6 +605,7 @@ function PublicSite() {
   const [contact,         setContact]         = useState({ name: '', email: '', message: '' });
   const [contactState,    setContactState]    = useState('idle');
   const [photo,           setPhoto]           = useState(getStoredPhoto);
+  const [cv,              setCv]              = useState(getStoredCv);
   const [content,         setContent]         = useState(() => {
     const stored = readStored(CONTENT_KEY, {});
     if (stored && Array.isArray(stored.projects)) {
@@ -635,6 +637,10 @@ function PublicSite() {
       if (remote.photo) {
         setPhoto(remote.photo);
         try { localStorage.setItem(PHOTO_KEY, remote.photo); } catch {}
+      }
+      if (remote.cv && remote.cv.url) {
+        setCv(remote.cv);
+        setStoredCv(remote.cv);
       }
       try {
         localStorage.setItem(CONTENT_KEY, JSON.stringify({
@@ -714,7 +720,53 @@ function PublicSite() {
     setTimeout(() => setToast(''), 3000);
   };
 
+  const handleDownloadCv = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const cvObj = cv || defaultCv;
+    const filename = cvObj.filename || 'Kalab_Awoke_CV.docx';
+    const fileUrl = cvObj.url || '/Kalab_Awoke_CV.docx';
+
+    if (fileUrl.startsWith('data:')) {
+      try {
+        const parts = fileUrl.split(',');
+        const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        showToast(`✓ Downloading ${filename}`);
+        return;
+      } catch (err) {
+        console.warn('Data URL download fallback:', err);
+      }
+    }
+
+    const a = document.createElement('a');
+    a.href = fileUrl;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast(`✓ Downloading ${filename}`);
+  };
+
   const handleCommandAction = (actionId) => {
+    if (actionId === 'download-cv') {
+      handleDownloadCv();
+      setCmdOpen(false);
+    }
     if (actionId === 'copy-email') {
       navigator.clipboard.writeText('kaleabawoe@gmail.com');
       showToast('Email copied to clipboard (kaleabawoe@gmail.com)');
@@ -781,6 +833,18 @@ function PublicSite() {
           >
             {theme === 'dark' ? <FiSun /> : <FiMoon />}
           </button>
+
+          <a
+            className="nav-cv-btn"
+            href={cv?.url || '/Kalab_Awoke_CV.docx'}
+            download={cv?.filename || 'Kalab_Awoke_CV.docx'}
+            onClick={handleDownloadCv}
+            title={`Download Kalab's CV (${cv?.filename || 'Kalab_Awoke_CV.docx'})`}
+          >
+            <FiFileText />
+            <span>CV</span>
+            <FiDownload className="nav-cv-subicon" />
+          </a>
 
           <a className="nav-contact" href="#contact">
             Hire me <Arrow />
@@ -856,6 +920,21 @@ function PublicSite() {
 
                 <div className="mobile-drawer-section-label">Quick Actions</div>
                 <div className="mobile-drawer-actions">
+                  <button
+                    className="mobile-action-card mobile-cv-card"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      handleDownloadCv();
+                    }}
+                  >
+                    <div className="mobile-action-icon"><FiFileText /></div>
+                    <div className="mobile-action-text">
+                      <strong>Download CV / Resume</strong>
+                      <small>{cv?.filename || 'Kalab_Awoke_CV.docx'} · {cv?.filesize || '37 KB'}</small>
+                    </div>
+                    <FiDownload className="mobile-cv-dl-icon" />
+                  </button>
+
                   <button
                     className="mobile-action-card"
                     onClick={() => {
@@ -953,6 +1032,17 @@ function PublicSite() {
 
               <div className="hero-buttons">
                 <a className="primary-button" href="#portfolio">View my work <Arrow /></a>
+                <a
+                  className="cv-button"
+                  href={cv?.url || '/Kalab_Awoke_CV.docx'}
+                  download={cv?.filename || 'Kalab_Awoke_CV.docx'}
+                  onClick={handleDownloadCv}
+                  title={`Download Kalab's CV (${cv?.filename || 'Kalab_Awoke_CV.docx'})`}
+                >
+                  <FiFileText className="cv-btn-icon" />
+                  <span>Download CV</span>
+                  <FiDownload className="cv-btn-sub" />
+                </a>
                 <a className="secondary-button" href="#contact">Let's connect <Arrow /></a>
               </div>
 
@@ -1215,6 +1305,7 @@ function PublicSite() {
             onClose={() => setCmdOpen(false)}
             onAction={handleCommandAction}
             onSelectProject={handleSelectProjectByName}
+            cv={cv}
           />
         )}
       </AnimatePresence>

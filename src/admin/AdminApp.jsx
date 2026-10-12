@@ -2,18 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   FiActivity, FiArrowUpRight, FiBriefcase, FiCheck, FiCheckCircle, FiChevronRight,
-  FiClock, FiCode, FiDownload, FiEdit3, FiExternalLink, FiEye, FiImage, FiLayout,
+  FiClock, FiCode, FiDownload, FiEdit3, FiExternalLink, FiEye, FiFileText, FiImage, FiLayout,
   FiLogOut, FiMail, FiMenu, FiMessageSquare, FiPlus, FiRefreshCw, FiSearch,
   FiSettings, FiTrash2, FiTrendingUp, FiUploadCloud, FiX
 } from 'react-icons/fi';
 import {
-  createProject, createSimpleRecord, fetchAdminContent,
-  markMessageRead, removeRecord, saveExperienceList, saveProjectsList,
+  createProject, createSimpleRecord, deleteCvDocument, fetchAdminContent,
+  markMessageRead, removeRecord, saveCvDocument, saveExperienceList, saveProjectsList,
   saveSkillsList, supabase, updateRecord, uploadProfilePhoto
 } from '../backend';
 import {
-  CONTENT_KEY, PHOTO_KEY, defaultPhoto, getStoredPhoto, projects,
-  readStored, skillsData
+  CONTENT_KEY, PHOTO_KEY, defaultCv, defaultPhoto, getStoredCv, getStoredPhoto, projects,
+  readStored, setStoredCv, skillsData
 } from '../data';
 
 const adminNav = [
@@ -21,6 +21,7 @@ const adminNav = [
   { label: 'Projects',   icon: FiBriefcase },
   { label: 'Skills',     icon: FiCode },
   { label: 'Experience', icon: FiLayout },
+  { label: 'Resume / CV', icon: FiFileText },
   { label: 'Messages',   icon: FiMessageSquare },
   { label: 'Appearance', icon: FiImage },
 ];
@@ -241,6 +242,7 @@ function AdminDashboard({ user, onLogout }) {
     { role: 'Full-Stack Engineer', company: 'Product Lab', period: '2023 — 2024', description: 'Built real-time collaboration engines and optimized Supabase cloud persistence pipelines.' }
   ]);
   const [messageList,    setMessageList]    = useState([]);
+  const [cvData,         setCvData]         = useState(getStoredCv);
   const [adminToast,     setAdminToast]     = useState('');
 
   // Modals state
@@ -283,6 +285,10 @@ function AdminDashboard({ user, onLogout }) {
       }
       if (remote.messages) {
         setMessageList(remote.messages);
+      }
+      if (remote.cv && remote.cv.url) {
+        setCvData(remote.cv);
+        setStoredCv(remote.cv);
       }
     }).catch(() => {});
   }, []);
@@ -385,13 +391,28 @@ function AdminDashboard({ user, onLogout }) {
     showToast('Removed experience entry.');
   };
 
+  // CV Actions
+  const handleSaveCv = (newCv) => {
+    setCvData(newCv);
+    setStoredCv(newCv);
+    showToast(`✓ Published CV "${newCv.filename}" to live portfolio.`);
+  };
+
+  const handleResetCv = async () => {
+    await deleteCvDocument();
+    setCvData(defaultCv);
+    setStoredCv(defaultCv);
+    showToast('Restored default bundled CV document.');
+  };
+
   // Backup Export
   const exportBackupJSON = () => {
     const payload = {
       exportedAt: new Date().toISOString(),
       projects: projectList,
       skills: skillList,
-      experience: experienceList
+      experience: experienceList,
+      cv: cvData
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -405,8 +426,8 @@ function AdminDashboard({ user, onLogout }) {
   const stats = [
     { label: 'Published Projects', value: projectList.length, icon: FiBriefcase, trend: 'Verified & active in grid' },
     { label: 'Skills in Matrix',   value: skillList.length,   icon: FiCode,      trend: 'Filtered across 3 tiers' },
+    { label: 'Downloadable CV',    value: cvData?.filesize || '37 KB', icon: FiFileText, trend: cvData?.filename || 'Kalab_Awoke_CV.docx' },
     { label: 'Client Inquiries',   value: messageList.length || 4, icon: FiMessageSquare, trend: `${unread} unread responses` },
-    { label: 'Cloud Persistence',  value: supabase ? 'LIVE' : 'DEMO', icon: FiActivity, trend: supabase ? 'Supabase synced' : 'Local cache synced' },
   ];
 
   return (
@@ -437,6 +458,7 @@ function AdminDashboard({ user, onLogout }) {
               {label === 'Messages' && <b>{unread}</b>}
               {label === 'Projects' && <span className="nav-count">{projectList.length}</span>}
               {label === 'Skills'   && <span className="nav-count">{skillList.length}</span>}
+              {label === 'Resume / CV' && <span className="nav-count">{cvData?.filesize || 'Ready'}</span>}
             </button>
           ))}
         </nav>
@@ -493,6 +515,7 @@ function AdminDashboard({ user, onLogout }) {
                 stats={stats}
                 projects={projectList}
                 messages={messageList}
+                cv={cvData}
                 onNewProject={() => setProjectModal('new')}
                 onNewSkill={() => setSkillModal('new')}
                 onEditProject={(p) => setProjectModal(p)}
@@ -525,6 +548,15 @@ function AdminDashboard({ user, onLogout }) {
                 onNew={() => setExperienceModal('new')}
                 onEdit={(e, i) => setExperienceModal({ ...e, _index: i })}
                 onDelete={handleDeleteExperience}
+              />
+            )}
+
+            {active === 'Resume / CV' && (
+              <AdminResumeManager
+                cv={cvData}
+                onSave={handleSaveCv}
+                onReset={handleResetCv}
+                onToast={showToast}
               />
             )}
 
@@ -592,7 +624,7 @@ function AdminDashboard({ user, onLogout }) {
 }
 
 /* ── 1. Admin Overview ───────────────────────────────────────── */
-function AdminOverview({ stats, projects: p, messages, onNewProject, onNewSkill, onEditProject, setActive, onExport }) {
+function AdminOverview({ stats, projects: p, messages, cv, onNewProject, onNewSkill, onEditProject, setActive, onExport }) {
   return (
     <>
       <div className="admin-welcome">
@@ -684,6 +716,29 @@ function AdminOverview({ stats, projects: p, messages, onNewProject, onNewSkill,
                 </div>
               ))
             )}
+          </div>
+        </section>
+
+        <section className="admin-panel cv-overview-panel">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">Downloadable Asset</p>
+              <h2>Curriculum Vitae / Resume</h2>
+            </div>
+            <button onClick={() => setActive('Resume / CV')}>Edit CV <FiChevronRight /></button>
+          </div>
+
+          <div className="cv-overview-content">
+            <div className="cv-overview-info">
+              <FiFileText className="cv-overview-icon" />
+              <div>
+                <strong>{cv?.filename || 'Kalab_Awoke_CV.docx'}</strong>
+                <p>{cv?.filesize || '37 KB'} · Linked to Hero, Navigation & Mobile Menu</p>
+              </div>
+            </div>
+            <button className="primary-button cv-overview-manage-btn" onClick={() => setActive('Resume / CV')}>
+              <FiUploadCloud /> Upload New File
+            </button>
           </div>
         </section>
       </div>
@@ -1003,6 +1058,220 @@ function AdminAppearanceManager({ onToast }) {
     </section>
   );
 }
+
+/* ── Admin Resume / CV Manager ───────────────────────────────── */
+function AdminResumeManager({ cv, onSave, onReset, onToast }) {
+  const [loading, setLoading] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [dragOver, setDragOver] = useState(false);
+
+  const activeCv = cv || defaultCv;
+
+  const handleFileUpload = async (file) => {
+    if (!file) return;
+    const allowed = ['.pdf', '.docx', '.doc'];
+    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+    if (!allowed.includes(ext)) {
+      onToast('Please upload a PDF or Word document (.pdf, .docx, .doc)');
+      return;
+    }
+
+    setLoading(true);
+    onToast(`Processing ${file.name}…`);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result;
+      const sizeStr = `${(file.size / 1024).toFixed(1)} KB`;
+
+      try {
+        const res = await saveCvDocument({
+          file,
+          filename: file.name,
+          filesize: sizeStr,
+          base64Fallback: base64
+        });
+
+        if (res.success && res.cv) {
+          onSave(res.cv);
+          onToast(`✓ CV file "${file.name}" uploaded and published!`);
+        } else {
+          const localRecord = {
+            url: base64,
+            filename: file.name,
+            filesize: sizeStr,
+            updatedAt: new Date().toISOString()
+          };
+          onSave(localRecord);
+          onToast(`✓ CV saved locally: ${file.name}`);
+        }
+      } catch (err) {
+        onToast(`Upload failed: ${err.message || 'Unknown error'}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleLinkSubmit = async (e) => {
+    e.preventDefault();
+    if (!urlInput.trim()) return;
+
+    setLoading(true);
+    const trimmed = urlInput.trim();
+    const urlFilename = trimmed.split('/').pop()?.split('?')[0] || 'Kalab_Awoke_CV.pdf';
+
+    try {
+      const res = await saveCvDocument({
+        url: trimmed,
+        filename: urlFilename.endsWith('.pdf') || urlFilename.endsWith('.docx') ? urlFilename : 'Kalab_Awoke_CV.pdf',
+        filesize: 'Direct Link'
+      });
+
+      if (res.success && res.cv) {
+        onSave(res.cv);
+        setUrlInput('');
+        onToast('✓ CV direct URL configured and published!');
+      }
+    } catch (err) {
+      onToast(`Error saving link: ${err.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadTest = () => {
+    if (!activeCv.url) {
+      onToast('No CV URL configured.');
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = activeCv.url;
+    a.download = activeCv.filename || 'Kalab_Awoke_CV.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    onToast(`Downloading ${activeCv.filename || 'CV'}…`);
+  };
+
+  return (
+    <section className="admin-panel cv-admin-panel">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">Career & Credentials</p>
+          <h2>Curriculum Vitae / Resume</h2>
+          <p className="panel-desc">
+            Visitors can download your CV across the portfolio hero, top navigation bar, command palette (⌘K), and mobile menu.
+          </p>
+        </div>
+        <span className="status-badge live-badge">
+          <span className="live-pulse" /> Live on Portfolio
+        </span>
+      </div>
+
+      <div className="cv-manager-layout">
+        {/* Current Active CV Status Card */}
+        <div className="cv-active-card">
+          <div className="cv-file-badge">
+            <div className="cv-file-icon-wrap">
+              <FiFileText className="cv-file-icon" />
+            </div>
+            <div className="cv-file-meta">
+              <span className="cv-file-label">Active Document</span>
+              <strong className="cv-file-name">{activeCv.filename || 'Kalab_Awoke_CV.docx'}</strong>
+              <div className="cv-file-chips">
+                <span className="cv-chip size-chip">{activeCv.filesize || '37 KB'}</span>
+                <span className="cv-chip status-chip">Ready for Download</span>
+                {activeCv.updatedAt && (
+                  <span className="cv-chip date-chip">Updated {new Date(activeCv.updatedAt).toLocaleDateString()}</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="cv-actions-row">
+            <button className="primary-button cv-test-btn" onClick={handleDownloadTest}>
+              <FiDownload /> Test Download
+            </button>
+            {activeCv.url && (
+              <a
+                className="secondary-button"
+                href={activeCv.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FiExternalLink /> Open Link / Preview
+              </a>
+            )}
+            <button
+              className="secondary-button cv-reset-btn"
+              onClick={onReset}
+              title="Revert to bundled default CV"
+            >
+              <FiRefreshCw /> Restore Default CV
+            </button>
+          </div>
+        </div>
+
+        {/* Upload Dropzone */}
+        <div className="cv-upload-grid">
+          <div
+            className={`cv-dropzone ${dragOver ? 'drag-over' : ''} ${loading ? 'uploading' : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file) handleFileUpload(file);
+            }}
+          >
+            <FiUploadCloud className="cv-drop-icon" />
+            <div className="cv-drop-title">
+              {loading ? 'Uploading & Synchronizing Document…' : 'Drag & Drop New CV File Here'}
+            </div>
+            <p className="cv-drop-sub">
+              Supports <strong>PDF (.pdf)</strong>, <strong>Word (.docx, .doc)</strong> up to 10 MB.
+            </p>
+            <label className="primary-button cv-browse-btn">
+              <input
+                type="file"
+                accept=".pdf,.docx,.doc"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileUpload(file);
+                }}
+                disabled={loading}
+                style={{ display: 'none' }}
+              />
+              <FiPlus /> Browse from Computer
+            </label>
+          </div>
+
+          {/* External Link Option */}
+          <div className="cv-link-card">
+            <h3>Or Link to External Hosted CV</h3>
+            <p>If you prefer hosting your resume on Google Drive, GitHub Releases, Notion, or S3, enter the direct URL below:</p>
+            <form onSubmit={handleLinkSubmit} className="cv-link-form">
+              <input
+                type="url"
+                placeholder="https://example.com/Kalab_Awoke_Resume.pdf"
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                disabled={loading}
+              />
+              <button className="secondary-button" type="submit" disabled={loading || !urlInput.trim()}>
+                Save URL
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 
 /* ── 7. Modals: Project, Skill, Experience ───────────────────── */
 function ProjectEditorModal({ project, onClose, onSave }) {

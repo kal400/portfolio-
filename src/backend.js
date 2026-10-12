@@ -96,11 +96,19 @@ export async function fetchPublicContent() {
     const rawSkills = fullSkills || (skills || []);
     const rawExp = fullExp || (experience || []);
 
+    const cv = settingsMap['resume_cv_url'] ? {
+      url: settingsMap['resume_cv_url'],
+      filename: settingsMap['resume_cv_filename'] || 'Kalab_Awoke_CV.docx',
+      filesize: settingsMap['resume_cv_filesize'] || '37 KB',
+      updatedAt: settingsMap['resume_cv_updated_at'] || ''
+    } : null;
+
     return {
       projects: rawProjects.map(normalizeProject).filter(Boolean),
       skills: rawSkills.map(normalizeSkill).filter(Boolean),
       experience: rawExp.map(normalizeExperience).filter(Boolean),
-      photo: settingsMap['profile_photo_url'] || null
+      photo: settingsMap['profile_photo_url'] || null,
+      cv
     };
   } catch (err) {
     console.error('fetchPublicContent error:', err);
@@ -150,12 +158,20 @@ export async function fetchAdminContent() {
     const rawSkills = fullSkills || (skills || []);
     const rawExp = fullExp || (experience || []);
 
+    const cv = settingsMap['resume_cv_url'] ? {
+      url: settingsMap['resume_cv_url'],
+      filename: settingsMap['resume_cv_filename'] || 'Kalab_Awoke_CV.docx',
+      filesize: settingsMap['resume_cv_filesize'] || '37 KB',
+      updatedAt: settingsMap['resume_cv_updated_at'] || ''
+    } : null;
+
     return {
       projects: rawProjects.map(normalizeProject).filter(Boolean),
       skills: rawSkills.map(normalizeSkill).filter(Boolean),
       experience: rawExp.map(normalizeExperience).filter(Boolean),
       messages: messages || [],
-      photo: settingsMap['profile_photo_url'] || null
+      photo: settingsMap['profile_photo_url'] || null,
+      cv
     };
   } catch (err) {
     console.error('fetchAdminContent error:', err);
@@ -302,3 +318,74 @@ export async function markMessageRead(id) {
   if (!supabase || !id) return { error: null };
   return supabase.from('messages').update({ is_read: true }).eq('id', id);
 }
+
+export async function saveCvDocument({ file, url, filename, filesize, base64Fallback }) {
+  let targetUrl = url || null;
+  const docName = filename || file?.name || 'Kalab_Awoke_CV.docx';
+  const docSize = filesize || (file ? `${Math.round(file.size / 1024)} KB` : '37 KB');
+
+  if (supabase && file) {
+    try {
+      const ext = file.name?.split('.').pop()?.toLowerCase() || 'docx';
+      const path = `documents/cv-${Date.now()}.${ext}`;
+      const upload = await supabase.storage.from('portfolio-assets').upload(path, file, {
+        upsert: true,
+        contentType: file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+      if (!upload.error) {
+        const { data } = supabase.storage.from('portfolio-assets').getPublicUrl(path);
+        if (data?.publicUrl) targetUrl = data.publicUrl;
+      }
+    } catch (err) {
+      console.warn('Storage upload error, falling back to base64/url:', err);
+    }
+  }
+
+  if (!targetUrl && base64Fallback) {
+    targetUrl = base64Fallback;
+  }
+
+  if (!targetUrl) {
+    return { success: false, error: 'No document URL or file provided.' };
+  }
+
+  const now = new Date().toISOString();
+  const cvRecord = {
+    url: targetUrl,
+    filename: docName,
+    filesize: docSize,
+    updatedAt: now
+  };
+
+  if (supabase) {
+    try {
+      await supabase.from('site_settings').upsert([
+        { key: 'resume_cv_url', value: targetUrl },
+        { key: 'resume_cv_filename', value: docName },
+        { key: 'resume_cv_filesize', value: docSize },
+        { key: 'resume_cv_updated_at', value: now }
+      ]);
+    } catch (err) {
+      console.error('Error saving CV to site_settings:', err);
+    }
+  }
+
+  return { success: true, cv: cvRecord };
+}
+
+export async function deleteCvDocument() {
+  if (supabase) {
+    try {
+      await supabase.from('site_settings').upsert([
+        { key: 'resume_cv_url', value: '' },
+        { key: 'resume_cv_filename', value: '' },
+        { key: 'resume_cv_filesize', value: '' },
+        { key: 'resume_cv_updated_at', value: '' }
+      ]);
+    } catch (err) {
+      console.error('Error deleting CV in site_settings:', err);
+    }
+  }
+  return { success: true };
+}
+

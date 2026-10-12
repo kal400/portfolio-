@@ -1,6 +1,13 @@
 export const PHOTO_KEY   = 'kalab-portfolio-photo';
 export const CONTENT_KEY = 'kalab-portfolio-content';
+export const CV_KEY      = 'kalab-portfolio-cv';
 export const defaultPhoto = '/photo.jpg';
+export const defaultCv = {
+  url: '/Kalab_Awoke_CV.docx',
+  filename: 'Kalab_Awoke_CV.docx',
+  filesize: '37 KB',
+  updatedAt: '2026-03-01T00:00:00.000Z'
+};
 
 export const readStored = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) || fallback; }
@@ -8,6 +15,11 @@ export const readStored = (key, fallback) => {
 };
 
 export const getStoredPhoto = () => localStorage.getItem(PHOTO_KEY) || defaultPhoto;
+export const getStoredCv = () => readStored(CV_KEY, defaultCv);
+export const setStoredCv = (cv) => {
+  try { localStorage.setItem(CV_KEY, JSON.stringify(cv)); }
+  catch {}
+};
 
 export const navItems = ['Home', 'About', 'Process', 'Skills', 'Portfolio', 'Services', 'Contact'];
 

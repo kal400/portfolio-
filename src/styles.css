@@ -4621,3 +4621,474 @@ html[data-theme="light"] .mobile-drawer {
   display: block;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   CV / RESUME DOWNLOAD & MANAGEMENT STYLES
+══════════════════════════════════════════════════════════════ */
+
+/* Hero CV Button */
+.cv-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 22px;
+  border-radius: var(--radius-sm);
+  font: 600 14px var(--font-body);
+  cursor: pointer;
+  text-decoration: none;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.12), rgba(0, 230, 118, 0.08));
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  color: var(--text);
+  box-shadow: 0 4px 18px rgba(0, 212, 255, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.cv-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.22), rgba(0, 230, 118, 0.18));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cv-button:hover {
+  transform: translateY(-2px);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 8px 28px rgba(0, 212, 255, 0.28);
+}
+
+.cv-button:hover::before {
+  opacity: 1;
+}
+
+.cv-button .cv-btn-icon {
+  font-size: 16px;
+  color: var(--cyan);
+  position: relative;
+  z-index: 1;
+}
+
+.cv-button span {
+  position: relative;
+  z-index: 1;
+}
+
+.cv-button .cv-btn-sub {
+  font-size: 14px;
+  opacity: 0.75;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.cv-button:hover .cv-btn-sub {
+  transform: translateY(2px);
+  opacity: 1;
+  color: var(--cyan);
+}
+
+html[data-theme="light"] .cv-button {
+  background: linear-gradient(135deg, rgba(0, 102, 255, 0.08), rgba(0, 204, 150, 0.06));
+  border-color: rgba(0, 102, 255, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 102, 255, 0.08);
+}
+
+/* Nav CV Button (Top bar) */
+.nav-cv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 13px;
+  border-radius: 99px;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: var(--transition);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.nav-cv-btn:hover {
+  background: rgba(0, 212, 255, 0.16);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  transform: translateY(-1px);
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.24);
+}
+
+.nav-cv-btn svg:first-child {
+  font-size: 14px;
+  color: var(--cyan);
+}
+
+.nav-cv-btn .nav-cv-subicon {
+  font-size: 12px;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+
+.nav-cv-btn:hover .nav-cv-subicon {
+  transform: translateY(2px);
+  opacity: 1;
+}
+
+html[data-theme="light"] .nav-cv-btn {
+  background: rgba(0, 102, 255, 0.07);
+  border-color: rgba(0, 102, 255, 0.22);
+}
+
+/* Mobile Drawer CV Card */
+.mobile-cv-card {
+  border: 1px solid rgba(0, 212, 255, 0.3) !important;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.09), rgba(0, 230, 118, 0.04)) !important;
+}
+
+.mobile-cv-card:hover {
+  border-color: var(--cyan) !important;
+  background: rgba(0, 212, 255, 0.14) !important;
+}
+
+.mobile-cv-dl-icon {
+  font-size: 16px;
+  color: var(--cyan);
+  margin-left: auto;
+  opacity: 0.85;
+}
+
+/* ── Admin Resume / CV Manager ───────────────────────────────── */
+.cv-admin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cv-manager-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cv-active-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 28px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.cv-active-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cyan), #00e676, transparent);
+}
+
+.cv-file-badge {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.cv-file-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(0, 230, 118, 0.1));
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cv-file-icon {
+  font-size: 26px;
+  color: var(--cyan);
+}
+
+.cv-file-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cv-file-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--cyan);
+}
+
+.cv-file-name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.cv-file-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.cv-chip {
+  padding: 3px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.size-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+}
+
+.status-chip {
+  background: rgba(0, 230, 118, 0.12);
+  border: 1px solid rgba(0, 230, 118, 0.35);
+  color: #00e676;
+}
+
+.date-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text3);
+}
+
+.cv-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cv-actions-row .primary-button {
+  padding: 10px 18px;
+  font-size: 13px;
+}
+
+.cv-actions-row .secondary-button {
+  padding: 10px 16px;
+  font-size: 13px;
+}
+
+.cv-reset-btn {
+  color: var(--text3) !important;
+}
+
+.cv-reset-btn:hover {
+  color: #ff5252 !important;
+  border-color: rgba(255, 82, 82, 0.4) !important;
+  background: rgba(255, 82, 82, 0.08) !important;
+}
+
+/* Upload Grid */
+.cv-upload-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .cv-upload-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cv-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 28px;
+  background: var(--surface);
+  border: 2px dashed var(--border2);
+  border-radius: var(--radius-lg);
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.cv-dropzone.drag-over {
+  border-color: var(--cyan);
+  background: rgba(0, 212, 255, 0.06);
+  box-shadow: 0 0 32px rgba(0, 212, 255, 0.15);
+}
+
+.cv-dropzone.uploading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.cv-drop-icon {
+  font-size: 44px;
+  color: var(--cyan);
+  margin-bottom: 14px;
+  animation: floatIcon 3s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.cv-drop-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.cv-drop-sub {
+  font-size: 13px;
+  color: var(--text2);
+  max-width: 320px;
+  margin-bottom: 20px;
+}
+
+.cv-browse-btn {
+  padding: 10px 20px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* External Link Card */
+.cv-link-card {
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.cv-link-card h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.cv-link-card p {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+
+.cv-link-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cv-link-form input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.cv-link-form input:focus {
+  border-color: var(--cyan);
+}
+
+.cv-link-form button {
+  justify-content: center;
+  padding: 11px;
+  font-size: 13px;
+}
+
+/* Admin Overview CV Card */
+.cv-overview-panel {
+  grid-column: 1 / -1;
+}
+
+.cv-overview-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-md);
+}
+
+.cv-overview-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cv-overview-icon {
+  font-size: 30px;
+  color: var(--cyan);
+}
+
+.cv-overview-info strong {
+  display: block;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.cv-overview-info p {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+.cv-overview-manage-btn {
+  padding: 9px 16px;
+  font-size: 12px;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00e676;
+  box-shadow: 0 0 10px #00e676;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+
